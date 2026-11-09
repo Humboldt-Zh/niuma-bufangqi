@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using NiumaBufangqi.Core;
@@ -31,6 +32,11 @@ internal sealed class TaskbarEntry : IDisposable
     private bool disposed;
     private bool refreshing;
     private string? diagnosticState;
+    private long lastObservationSequence = -1;
+    private long lastObservationTick;
+    private string? lastObservationReason;
+    private bool observationStallReported;
+    private long lastHealthTick;
 
     internal TaskbarEntry(Action togglePanel, Action openMenu)
     {
@@ -101,17 +107,15 @@ internal sealed class TaskbarEntry : IDisposable
             if (visiblePart.Height < Math.Max(16, 24 * currentDpi / 96))
             { layoutCache.Reset(); HideSurface("native-hidden"); return; }
             var observation = monitor.Latest;
-            var snapshot = layoutCache.Resolve(observation, currentHandle, actualBounds, currentDpi,
-                nativeVisible: true, enabled: true, DateTime.UtcNow);
-            if (snapshot is null) { HideSurface(observation?.Kind == TaskbarObservationKind.LayoutOccluded ? "occluded-layout-unconfirmed" : "layout-unavailable"); return; }
-            dpi = snapshot.Dpi;
+            ObserveDiagnostics(observation);
+            dpi = currentDpi;
             palette = TaskbarPalette.Read();
             var widths = TaskbarRenderer.Measure(presentation, dpi);
-            var placement = TaskbarLayout.PlaceAdaptive(snapshot.Bounds, snapshot.LeadingReserved, snapshot.ContentLeft,
-                widths.Normal, widths.Compact, dpi);
-            if (placement is null) { HideSurface("no-safe-gap"); return; }
+            var placement = layoutCache.ResolvePlacement(observation, currentHandle, actualBounds, currentDpi,
+                nativeVisible: true, enabled: true, DateTime.UtcNow, widths.Normal, widths.Compact);
+            if (placement is null) { HideSurface(layoutCache.Decision); return; }
             EnsureSurface();
-            if (surface is null || !Attach(snapshot.Handle)) { HideSurface("attach-failed"); return; }
+            if (surface is null || !Attach(currentHandle)) { HideSurface("attach-failed"); return; }
             var target = placement.Value.Bounds;
             compact = placement.Value.Compact;
             surfaceSize = target.Size;
@@ -119,15 +123,16 @@ internal sealed class TaskbarEntry : IDisposable
                 TaskbarNative.SwpNoActivate | TaskbarNative.SwpNoSendChanging)) { HideSurface("position-failed"); return; }
             if (!RenderSurface()) { HideSurface("render-failed"); return; }
             TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwShowNoActivate);
-            var newBounds = new Rectangle(snapshot.Bounds.Left + target.X, snapshot.Bounds.Top + target.Y, target.Width, target.Height);
-            var changed = !attached || parent != snapshot.Handle || screenBounds != newBounds;
-            parent = snapshot.Handle; screenBounds = newBounds; attached = true;
-            ReportDiagnostic(observation?.Kind switch
+            var newBounds = new Rectangle(actualBounds.Left + target.X, actualBounds.Top + target.Y, target.Width, target.Height);
+            var changed = !attached || parent != currentHandle || screenBounds != newBounds;
+            parent = currentHandle; screenBounds = newBounds; attached = true;
+            ReportDiagnostic("shown-native-entry");
+            var healthTick = Stopwatch.GetTimestamp();
+            if (lastHealthTick == 0 || Stopwatch.GetElapsedTime(lastHealthTick, healthTick) >= TimeSpan.FromSeconds(10))
             {
-                TaskbarObservationKind.LayoutMeasured => "shown-measured",
-                TaskbarObservationKind.LayoutOccluded => "shown-geometry-confirmed",
-                _ => "shown-cached-layout"
-            });
+                lastHealthTick = healthTick;
+                Diagnostic?.Invoke(TryGetScreenBounds(out _) ? "health-native-visible" : "health-native-not-visible");
+            }
             if (changed) AttachmentChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or ExternalException)
@@ -182,6 +187,27 @@ internal sealed class TaskbarEntry : IDisposable
         if (diagnosticState == state) return;
         diagnosticState = state;
         Diagnostic?.Invoke(state);
+    }
+
+    private void ObserveDiagnostics(TaskbarObservation? observation)
+    {
+        var tick = Stopwatch.GetTimestamp();
+        var sequence = observation?.Sequence ?? 0;
+        if (sequence != lastObservationSequence)
+        {
+            lastObservationSequence = sequence;
+            lastObservationTick = tick;
+            observationStallReported = false;
+            var reason = observation is null ? "not-yet-captured" : observation.Kind + "/" + observation.Reason;
+            if (reason != lastObservationReason || observation is { CaptureMilliseconds: >= 1500 })
+                Diagnostic?.Invoke($"uia-observation reason={reason} elapsed_ms={observation?.CaptureMilliseconds ?? 0} sequence={sequence}");
+            lastObservationReason = reason;
+        }
+        else if (!observationStallReported && lastObservationTick != 0 && Stopwatch.GetElapsedTime(lastObservationTick, tick) >= TimeSpan.FromSeconds(3))
+        {
+            observationStallReported = true;
+            Diagnostic?.Invoke($"uia-observation-stalled sequence={sequence}");
+        }
     }
 
     private bool RenderSurface()

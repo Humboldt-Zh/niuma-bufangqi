@@ -1,217 +1,248 @@
 using System.Drawing;
 using NiumaBufangqi.Desktop.Taskbar;
 
-// These tests link only pure data/geometry. They never instantiate a window or query Explorer.
+// Pure replay tests: no window creation, UI Automation or calls to Explorer.
 var bar = new Rectangle(0, 1000, 1920, 48);
 var weather = new Rectangle(0, 1000, 120, 48);
-var clock = new DateTime(2026, 11, 9, 8, 0, 0, DateTimeKind.Utc);
+var clock = new DateTime(2026, 11, 9, 20, 34, 4, DateTimeKind.Utc);
 var nativeHandle = new IntPtr(101);
-TaskbarSnapshot Sample(double capturedSeconds = 0, int contentLeft = 800, IntPtr? handle = null, Rectangle? bounds = null, int dpi = 96) =>
-    new(handle ?? nativeHandle, bounds ?? bar, weather, contentLeft, dpi, clock.AddSeconds(capturedSeconds));
-TaskbarObservation Measured(TaskbarSnapshot snapshot) => new(TaskbarObservationKind.LayoutMeasured, snapshot);
-TaskbarObservation Occluded(TaskbarSnapshot snapshot) => new(TaskbarObservationKind.LayoutOccluded, snapshot);
+TaskbarSnapshot Sample(double seconds = 0, int contentLeft = 800, IntPtr? handle = null, Rectangle? bounds = null, int dpi = 96) =>
+    new(handle ?? nativeHandle, bounds ?? bar, weather, contentLeft, dpi, clock.AddSeconds(seconds));
+TaskbarObservation Measured(TaskbarSnapshot snapshot, long sequence = 0) => new(TaskbarObservationKind.LayoutMeasured, snapshot, Sequence: sequence);
+TaskbarObservation Occluded(TaskbarSnapshot snapshot, long sequence = 0) => new(TaskbarObservationKind.LayoutOccluded, snapshot, Sequence: sequence);
+TaskbarObservation Unknown(long sequence = 0) => new(TaskbarObservationKind.LayoutUnknown, Sequence: sequence);
 TaskbarSnapshot? Resolve(TaskbarLayoutCache cache, TaskbarObservation? observation, double seconds,
     IntPtr? handle = null, Rectangle? bounds = null, int dpi = 96, bool visible = true, bool enabled = true) =>
     cache.Resolve(observation, handle ?? nativeHandle, bounds ?? bar, dpi, visible, enabled, clock.AddSeconds(seconds));
+TaskbarPlacement? Place(TaskbarLayoutCache cache, TaskbarObservation? observation, double seconds,
+    int normal = 180, int compact = 110, IntPtr? handle = null, Rectangle? bounds = null,
+    int dpi = 96, bool visible = true, bool enabled = true) =>
+    cache.ResolvePlacement(observation, handle ?? nativeHandle, bounds ?? bar, dpi, visible, enabled,
+        clock.AddSeconds(seconds), normal, compact);
 var tests = new (string Name, Action Run)[]
 {
+    ("The observed Edge-switch failure no longer turns missing samples into a hide", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Assert(first is not null, "A reliable first sample must allocate the entry.");
+        // Actual failure timeline: 20:34:05 Unknown, 20:34:08 old hide, 20:34:13 recovery.
+        foreach (var second in new[] { 1d, 4d, 8.9d })
+            Equal(first, Place(cache, Unknown((long)second + 2), second));
+        Equal(first, Place(cache, Measured(Sample(9), 20), 9));
+        Equal("new-measured-layout", cache.Decision);
+    }),
+    ("Ten minutes of unavailable UIA retain exactly the last native slot", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        foreach (var second in new[] { 1d, 4.001d, 15d, 60d, 120d, 600d })
+        {
+            Equal(first, Place(cache, Unknown((long)second + 2), second));
+            Equal(false, cache.MeasurementUpdated);
+            Equal("held-layout", cache.Decision);
+        }
+    }),
+    ("A repeatedly replayed measured observation cannot expire an allocated entry", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var observation = Measured(Sample(), 10);
+        var first = Place(cache, observation, 0);
+        foreach (var second in new[] { .5d, 3d, 4.001d, 60d })
+        {
+            Equal(first, Place(cache, observation, second));
+            Equal(false, cache.MeasurementUpdated);
+        }
+    }),
+    ("Text growth during an observation outage cannot enlarge or move the drawn rectangle", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Equal(first, Place(cache, Unknown(2), 1, normal: 600, compact: 500));
+        Equal(first, Place(cache, Unknown(3), 30, normal: 1000, compact: 900));
+        var confirmed = Place(cache, Measured(Sample(31), 4), 31, normal: 200, compact: 110);
+        Equal(new Rectangle(128, 0, 216, 48), Require(confirmed).Bounds);
+    }),
+    ("An unknown initial layout or offscreen-only geometry cannot invent an entry", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Equal<TaskbarPlacement?>(null, Place(cache, null, 0));
+        Equal<TaskbarPlacement?>(null, Place(cache, Unknown(1), 1));
+        Equal<TaskbarPlacement?>(null, Place(cache, Occluded(Sample(2), 2), 2));
+        Equal<TaskbarPlacement?>(null, Place(cache, new(TaskbarObservationKind.LayoutMeasured, Sequence: 3), 3));
+    }),
+    ("Weak geometry differences do not erase the currently owned native slot", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Equal(first, Place(cache, Occluded(Sample(1, contentLeft: 790), 2), 1));
+        Equal(first, Place(cache, Occluded(Sample(2) with { LeadingReserved = null }, 3), 2));
+        Equal(first, Place(cache, Unknown(4), 60));
+        var changed = Sample(61) with { LeadingReserved = new Rectangle(0, 1000, 130, 48) };
+        Equal(138, Require(Place(cache, Measured(changed, 5), 61)).Bounds.Left);
+    }),
+    ("A new reliable no-space measurement hides immediately and old safe data cannot revive it", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Place(cache, Measured(Sample(), 1), 0);
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(1, contentLeft: 200), 2), 1));
+        Equal("no-safe-gap", cache.Decision);
+        Equal<TaskbarPlacement?>(null, Place(cache, Unknown(3), 60));
+        Equal("held-no-safe-gap", cache.Decision);
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(60), 1), 60));
+        Equal<TaskbarPlacement?>(null, Place(cache, Occluded(Sample(61), 4), 61));
+        Assert(Place(cache, Measured(Sample(62), 5), 62) is not null, "Only new reliable recovery data should allocate again.");
+    }),
+    ("Native owner replacement invalidates placement before any provider recovery", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var replacement = new IntPtr(202);
+        Place(cache, Measured(Sample(), 1), 0);
+        Equal<TaskbarPlacement?>(null, Place(cache, Unknown(2), .2, handle: replacement));
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(.3), 3), .3, handle: replacement));
+        Equal<TaskbarPlacement?>(null, Place(cache, Occluded(Sample(.4, handle: replacement), 4), .4, handle: replacement));
+        Assert(Place(cache, Measured(Sample(.5, handle: replacement), 5), .5, handle: replacement) is not null, "A fresh measurement must establish the replacement owner.");
+    }),
+    ("Native geometry and DPI changes cannot retain the previous slot", () =>
+    {
+        foreach (var changeDpi in new[] { false, true })
+        {
+            var cache = new TaskbarLayoutCache();
+            var moved = new Rectangle(-1920, 1000, 1920, 48);
+            Place(cache, Measured(Sample(), 1), 0);
+            Equal<TaskbarPlacement?>(null, Place(cache, Unknown(2), 1, bounds: changeDpi ? bar : moved, dpi: changeDpi ? 144 : 96));
+            Equal<TaskbarPlacement?>(null, Place(cache, Unknown(3), 2));
+            Assert(Place(cache, Measured(Sample(3), 4), 3) is not null, "Recovery needs a new sample in the actual current context.");
+        }
+    }),
+    ("Actual hiding, disabling and invalid native contexts clear both measurement and allocation", () =>
+    {
+        foreach (var scenario in Enumerable.Range(0, 5))
+        {
+            var cache = new TaskbarLayoutCache();
+            Place(cache, Measured(Sample(), 1), 0);
+            var hidden = scenario switch
+            {
+                0 => Place(cache, Unknown(2), 1, visible: false),
+                1 => Place(cache, Unknown(2), 1, enabled: false),
+                2 => Place(cache, Unknown(2), 1, handle: IntPtr.Zero),
+                3 => Place(cache, Unknown(2), 1, bounds: Rectangle.Empty),
+                _ => Place(cache, Unknown(2), 1, dpi: 0)
+            };
+            Equal<TaskbarPlacement?>(null, hidden);
+            Equal<TaskbarPlacement?>(null, Place(cache, Unknown(3), 2));
+            Assert(Place(cache, Measured(Sample(3), 4), 3) is not null, "A reliable sample can restore a genuinely valid native owner.");
+        }
+    }),
+    ("An old background NativeUnavailable observation cannot contradict current visible native state", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Equal(first, Place(cache, new(TaskbarObservationKind.NativeUnavailable, Sequence: 2), 1));
+        Equal(first, Place(cache, Unknown(3), 30));
+    }),
+    ("Malformed, future and stale provider samples are ignored rather than hiding the entry", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Equal(first, Place(cache, Measured(Sample(100), 2), 1));
+        Equal(first, Place(cache, Measured(Sample(-10), 3), 2));
+        Equal(first, Place(cache, new(TaskbarObservationKind.LayoutMeasured, Sequence: 4), 3));
+        Equal(first, Place(cache, new((TaskbarObservationKind)999, Sequence: 5), 4));
+        Equal(first, Place(cache, Measured(Sample(5, contentLeft: 200), -1), 5));
+        Equal(first, Place(cache, Unknown(6), 60));
+    }),
+    ("Clock rollback does not control native visibility and newer sequence data can recover", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 10), 0);
+        Equal(first, Place(cache, Unknown(11), -1));
+        Equal(first, Place(cache, Measured(Sample(1), 12), -1));
+        var confirmed = Sample(-.5);
+        Equal(first, Place(cache, Measured(confirmed, 13), -.5));
+        Equal(true, cache.MeasurementUpdated);
+    }),
+    ("A newer sequence can establish a changed native context after a system clock rollback", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Place(cache, Measured(Sample(), 1), 0);
+        var moved = new Rectangle(0, 1001, 1920, 48);
+        Equal<TaskbarPlacement?>(null, Place(cache, Unknown(2), 10, bounds: moved));
+        var afterRollback = Sample(1, bounds: moved) with { LeadingReserved = new Rectangle(0, 1001, 130, 48) };
+        var allocation = Place(cache, Measured(afterRollback, 3), 1, normal: 200, bounds: moved);
+        Assert(allocation is not null, "Native identity and a new sequence must remain usable after the wall clock moves backwards.");
+        Equal(new Rectangle(138, 0, 216, 48), Require(allocation).Bounds);
+        Equal(true, cache.MeasurementUpdated);
+        Equal(allocation, Place(cache, Measured(Sample(2, bounds: moved), 2), 2, bounds: moved));
+    }),
+    ("Provider sequence prevents late or replayed samples from overriding a newer decision", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 10), 0);
+        Equal(first, Place(cache, Unknown(12), 1));
+        Equal(first, Place(cache, Measured(Sample(2, contentLeft: 200), 11), 2));
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(3, contentLeft: 200), 13), 3));
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(3.1), 12), 3.1));
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(3.2), 13), 3.2));
+    }),
+    ("Unsequenced replay tests use capture order without expiring the held slot", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample()), 0);
+        Equal(first, Place(cache, Measured(Sample()), 1, normal: 600, compact: 500));
+        Equal(false, cache.MeasurementUpdated);
+        var refreshed = Place(cache, Measured(Sample(.5)), 1, normal: 200, compact: 110);
+        Equal(216, Require(refreshed).Bounds.Width);
+    }),
+    ("Explicit reset clears the slot while retained sequence rejects its old replay", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Place(cache, Measured(Sample(), 10), 0);
+        cache.Reset();
+        Equal<TaskbarPlacement?>(null, Place(cache, Measured(Sample(), 10), .1));
+        Equal<TaskbarPlacement?>(null, Place(cache, Unknown(11), .2));
+        Assert(Place(cache, Measured(Sample(.3), 12), .3) is not null, "New evidence can establish a slot after reset.");
+    }),
+    ("A measurement from another native context cannot erase this context's valid entry", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Equal(first, Place(cache, Measured(Sample(1, handle: new IntPtr(202)), 2), 1));
+        Equal(first, Place(cache, Measured(Sample(2, bounds: new Rectangle(-1920, 1000, 1920, 48)), 3), 2));
+        Equal(first, Place(cache, Measured(Sample(3, dpi: 144), 4), 3));
+    }),
+    ("Weak malformed geometry does not erase a prior confirmed placement", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        Equal(first, Place(cache, new(TaskbarObservationKind.LayoutOccluded, Sequence: 2), 1));
+        Equal(first, Place(cache, Occluded(Sample(-20), 3), 2));
+        Equal(first, Place(cache, Occluded(Sample(20), 4), 3));
+        Equal(first, Place(cache, Unknown(5), 60));
+    }),
+    ("A snapshot that was never allocated cannot invent a drawn placement during an outage", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Assert(Resolve(cache, Measured(Sample(), 1), 0) is not null, "This helper records only a measurement.");
+        Equal<TaskbarPlacement?>(null, Place(cache, Unknown(2), 1));
+        Equal("no-allocated-slot", cache.Decision);
+        Assert(Place(cache, Measured(Sample(2), 3), 2) is not null, "A newly accepted measurement can allocate the actual slot.");
+    }),
+    ("Agreeing fresh occluded geometry may update only an established complete slot", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        var first = Place(cache, Measured(Sample(), 1), 0);
+        foreach (var second in Enumerable.Range(1, 15))
+            Equal(first, Place(cache, Occluded(Sample(second), second + 1), second));
+        Equal("confirmed-occluded-layout", cache.Decision);
+        Equal(first, Place(cache, Unknown(30), 60));
+    }),
     ("An overlay-sized accessibility rectangle cannot masquerade as a taskbar button", () =>
     {
         Assert(TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(600, 1000, 48, 48), bar), "A genuine taskbar button should be accepted.");
         Assert(TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(600, 999, 48, 50), bar), "Subpixel rounding should have a bounded tolerance.");
         Assert(!TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(0, 0, 1920, 1048), bar), "A Start overlay extending above the bar is not button geometry.");
         Assert(!TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(1900, 1000, 100, 48), bar), "Geometry extending beyond the bar must not create a false free gap.");
-    }),
-    ("Fresh agreeing occluded geometry keeps a long-open shell menu from expiring the entry", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        Equal(Sample(), Resolve(cache, Measured(Sample()), 0));
-        TaskbarSnapshot? confirmed = null;
-        foreach (var second in Enumerable.Range(1, 15))
-        {
-            var current = Sample(second);
-            confirmed = Resolve(cache, Occluded(current), second);
-            Equal(current, confirmed);
-        }
-        Equal(confirmed, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 18));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 19.001));
-    }),
-    ("Occluded geometry cannot invent a baseline or replace a measured slot with a different one", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample()), 0));
-        foreach (var changed in new[] { Sample(1, contentLeft: 790), Sample(1) with { LeadingReserved = null } })
-        {
-            Resolve(cache, Measured(Sample()), 0);
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(changed), 1));
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.1));
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1.2)), 1.2));
-        }
-        Resolve(cache, Measured(Sample()), 0);
-        var blocked = Sample(1, contentLeft: 200);
-        Equal(blocked, Resolve(cache, Measured(blocked), 1));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1.5)), 1.5));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.6));
-    }),
-    ("A cleared native context cannot be revived by offscreen geometry alone", () =>
-    {
-        foreach (var invalid in Enumerable.Range(0, 6))
-        {
-            var cache = new TaskbarLayoutCache();
-            Resolve(cache, Measured(Sample()), 0);
-            TaskbarSnapshot? invalidated = invalid switch
-            {
-                0 => Resolve(cache, new(TaskbarObservationKind.NativeUnavailable), .5),
-                1 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, visible: false),
-                2 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, enabled: false),
-                3 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, handle: new IntPtr(202)),
-                4 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, bounds: new Rectangle(-1920, 1000, 1920, 48)),
-                _ => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, dpi: 144)
-            };
-            Equal<TaskbarSnapshot?>(null, invalidated);
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1)), 1));
-        }
-    }),
-    ("A fresh matching geometry proof can recover an expired baseline while unknown reads stay hidden", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        Resolve(cache, Measured(Sample()), 0);
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 5));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, null, 8));
-        var confirmed = Sample(9);
-        Equal(confirmed, Resolve(cache, Occluded(confirmed), 9));
-        Equal(confirmed, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 9.5));
-    }),
-    ("Malformed or temporally invalid occluded proofs clear the baseline", () =>
-    {
-        foreach (var invalid in Enumerable.Range(0, 4))
-        {
-            var cache = new TaskbarLayoutCache();
-            Resolve(cache, Measured(Sample()), 0);
-            var result = invalid switch
-            {
-                0 => Resolve(cache, new(TaskbarObservationKind.LayoutOccluded), 1),
-                1 => Resolve(cache, Occluded(Sample(-4.01)), 1),
-                2 => Resolve(cache, Occluded(Sample(2)), 1),
-                _ => Resolve(cache, Occluded(Sample(-1)), -1)
-            };
-            Equal<TaskbarSnapshot?>(null, result);
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.1));
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1.2)), 1.2));
-        }
-    }),
-    ("A brief unknown layout preserves the existing entry until a fresh measurement arrives", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        var first = Sample();
-        var recovered = Sample(1.5);
-        var states = new[]
-        {
-            Resolve(cache, Measured(first), 0),
-            Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5),
-            Resolve(cache, null, 1),
-            Resolve(cache, Measured(recovered), 1.5),
-            Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 4.5)
-        };
-        Assert(states.All(snapshot => snapshot is not null), "A short provider transition must not hide a valid entry.");
-        Assert(states.All(snapshot => TaskbarLayout.PlaceAdaptive(snapshot!.Bounds, snapshot.LeadingReserved, snapshot.ContentLeft, 180, 110, snapshot.Dpi) is not null), "Every retained snapshot must still represent the measured safe gap.");
-        Equal(first.CapturedAt, states[2]!.CapturedAt);
-        Equal(recovered, states[4]);
-    }),
-    ("Repeated unknown samples do not renew the four-second lease", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        var original = Sample();
-        Equal(original, Resolve(cache, Measured(original), 0));
-        foreach (var second in new[] { 1d, 2d, 3.999d, 4d })
-            Equal(original, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), second));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 4.001));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, null, 5));
-        var recovered = Sample(6);
-        Equal(recovered, Resolve(cache, Measured(recovered), 6));
-    }),
-    ("No history and partial unknown snapshots cannot invent a placement", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, null, 0));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown, Sample()), .5));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1));
-    }),
-    ("Geometry and DPI changes discard the old layout before accepting any new measurement", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        var moved = new Rectangle(-1920, 1000, 1920, 48);
-        Resolve(cache, Measured(Sample()), 0);
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .2, bounds: moved));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .3));
-        var current = Sample(.4, bounds: moved);
-        Equal(current, Resolve(cache, Measured(current), .4, bounds: moved));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, bounds: moved, dpi: 144));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .6, bounds: moved));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, Measured(Sample(.7)), .7, bounds: moved));
-    }),
-    ("Native unavailability and a rebuilt taskbar require a fresh snapshot for the new handle", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        var replacement = new IntPtr(202);
-        Resolve(cache, Measured(Sample()), 0);
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.NativeUnavailable), .2));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .3));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .4, handle: replacement));
-        var fresh = Sample(.5, handle: replacement);
-        Equal(fresh, Resolve(cache, Measured(fresh), .5, handle: replacement));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .6, handle: nativeHandle));
-    }),
-    ("Native hiding and user disabling clear the lease rather than temporarily suppressing it", () =>
-    {
-        foreach (var disabling in new[] { false, true })
-        {
-            var cache = new TaskbarLayoutCache();
-            Resolve(cache, Measured(Sample()), 0);
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .2,
-                visible: disabling, enabled: !disabling));
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .3));
-            var refreshed = Sample(.4);
-            Equal(refreshed, Resolve(cache, Measured(refreshed), .4));
-        }
-    }),
-    ("A confirmed insufficient gap replaces the old safe measurement and cannot revive it", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        Resolve(cache, Measured(Sample()), 0);
-        var blocked = Sample(1, contentLeft: 200);
-        Equal(blocked, Resolve(cache, Measured(blocked), 1));
-        Equal<TaskbarPlacement?>(null, TaskbarLayout.PlaceAdaptive(blocked.Bounds, blocked.LeadingReserved, blocked.ContentLeft, 180, 110, blocked.Dpi));
-        var held = Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.5);
-        Equal(blocked, held);
-        Equal<TaskbarPlacement?>(null, TaskbarLayout.PlaceAdaptive(held!.Bounds, held.LeadingReserved, held.ContentLeft, 180, 110, held.Dpi));
-    }),
-    ("Future measurements, wall-clock rollback and stale measurements fail closed", () =>
-    {
-        var cache = new TaskbarLayoutCache();
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, Measured(Sample(1)), 0));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5));
-        Resolve(cache, Measured(Sample()), 0);
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), -.001));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5));
-        Equal<TaskbarSnapshot?>(null, Resolve(cache, Measured(Sample(-5)), 0));
-    }),
-    ("Invalid native contexts and malformed measured observations cannot retain a previous lease", () =>
-    {
-        foreach (var invalid in new[] { 0, 1, 2, 3 })
-        {
-            var cache = new TaskbarLayoutCache();
-            Resolve(cache, Measured(Sample()), 0);
-            TaskbarSnapshot? result = invalid switch
-            {
-                0 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .2, handle: IntPtr.Zero),
-                1 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .2, bounds: Rectangle.Empty),
-                2 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .2, dpi: 0),
-                _ => Resolve(cache, new(TaskbarObservationKind.LayoutMeasured), .2)
-            };
-            Equal<TaskbarSnapshot?>(null, result);
-            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .3));
-        }
     }),
     ("Entry uses the measured taskbar gap beside weather", () =>
     {
@@ -278,3 +309,4 @@ return failed == 0 ? 0 : 1;
 static TaskbarPlacement Require(TaskbarPlacement? value) => value ?? throw new InvalidOperationException("Expected a safe taskbar placement.");
 static void Assert(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
 static void Equal<T>(T expected, T actual) { if (!EqualityComparer<T>.Default.Equals(expected, actual)) throw new InvalidOperationException($"Expected {expected}; got {actual}."); }
+

@@ -71,6 +71,7 @@ public partial class App : Application
             activation = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
             store = new LocalStateStore(DataDirectory);
             State = store.Load();
+            Log("application-start-version-" + Version);
             State = State with { StartWithWindows = IsCurrentStartupConfigured() };
             panel = new PanelWindow(this);
             entry = new TaskbarEntry(TogglePanel, ShowMenu);

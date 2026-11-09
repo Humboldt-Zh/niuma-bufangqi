@@ -17,4 +17,6 @@ internal enum TaskbarObservationKind
     LayoutOccluded
 }
 
-internal sealed record TaskbarObservation(TaskbarObservationKind Kind, TaskbarSnapshot? Snapshot = null);
+/// <summary>Diagnostic metadata contains fixed codes and timings, never UI text or salary data.</summary>
+internal sealed record TaskbarObservation(TaskbarObservationKind Kind, TaskbarSnapshot? Snapshot = null,
+    string Reason = "", long CaptureMilliseconds = 0, long Sequence = 0);
