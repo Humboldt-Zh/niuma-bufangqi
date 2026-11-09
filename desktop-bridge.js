@@ -26,7 +26,7 @@
   window.NiumaDesktop = Object.freeze({
     isDesktop,
     initialState,
-    version: isDesktop && typeof bootstrap.version === 'string' ? bootstrap.version : '0.1.1',
+    version: isDesktop && typeof bootstrap.version === 'string' ? bootstrap.version : '0.1.2',
     send(type, payload = {}) {
       if (!isDesktop || !commands.has(type) || !payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
       try { webview.postMessage({ version: 1, type, payload }); return true; }

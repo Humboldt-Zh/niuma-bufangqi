@@ -7,17 +7,14 @@ using System.Windows.Automation;
 
 namespace NiumaBufangqi.Desktop.Taskbar;
 
-internal sealed record TaskbarSnapshot(IntPtr Handle, Rectangle Bounds, Rectangle? LeadingReserved,
-    int ContentLeft, int Dpi, DateTime CapturedAt);
-
 /// <summary>Explorer UI Automation is queried on a background MTA task, never on the UI thread.</summary>
 internal sealed class TaskbarMonitor : IDisposable
 {
     private readonly CancellationTokenSource stop = new();
     private readonly Task worker;
-    private TaskbarSnapshot? latest;
+    private TaskbarObservation? latest;
     private int disposed;
-    internal TaskbarSnapshot? Latest => Volatile.Read(ref latest);
+    internal TaskbarObservation? Latest => Volatile.Read(ref latest);
 
     internal TaskbarMonitor() => worker = Task.Run(WatchAsync);
 
@@ -25,22 +22,28 @@ internal sealed class TaskbarMonitor : IDisposable
     {
         while (!stop.IsCancellationRequested)
         {
-            TaskbarSnapshot? snapshot = null;
-            try { snapshot = Capture(); }
+            TaskbarObservation observation;
+            try { observation = Capture(); }
             catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException or ArgumentException or UnauthorizedAccessException)
-            { /* Explorer can replace its UIA tree while it is being read. Discard the partial result. */ }
-            Volatile.Write(ref latest, snapshot);
+            {
+                // A provider failure is missing layout data, not proof that the taskbar
+                // disappeared or that its previously measured gap is no longer usable.
+                observation = new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
+            }
+            Volatile.Write(ref latest, observation);
             try { await Task.Delay(1000, stop.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
         }
     }
 
-    private TaskbarSnapshot? Capture()
+    private TaskbarObservation Capture()
     {
         var handle = TaskbarNative.FindWindow("Shell_TrayWnd", null);
-        if (handle == IntPtr.Zero || !TaskbarNative.IsWindowVisible(handle) || !TaskbarNative.GetWindowRect(handle, out var native)) return null;
+        if (handle == IntPtr.Zero || !TaskbarNative.IsWindowVisible(handle) || !TaskbarNative.GetWindowRect(handle, out var native))
+            return new TaskbarObservation(TaskbarObservationKind.NativeUnavailable, null);
         var bounds = Rectangle.FromLTRB(native.Left, native.Top, native.Right, native.Bottom);
-        if (bounds.Width <= 0 || bounds.Height <= 0 || bounds.Height > bounds.Width) return null;
+        if (bounds.Width <= 0 || bounds.Height <= 0 || bounds.Height > bounds.Width)
+            return new TaskbarObservation(TaskbarObservationKind.NativeUnavailable, null);
         var root = AutomationElement.FromHandle(handle);
         var budget = 160;
         var frame = FindFrame(root, 0, ref budget);
@@ -60,6 +63,8 @@ internal sealed class TaskbarMonitor : IDisposable
                 }
                 button = TreeWalker.RawViewWalker.GetNextSibling(button);
             }
+            if (button is not null || stop.IsCancellationRequested)
+                return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
         }
         else
         {
@@ -68,16 +73,21 @@ internal sealed class TaskbarMonitor : IDisposable
             var rebar = TaskbarNative.FindWindowEx(handle, IntPtr.Zero, "ReBarWindow32", null);
             var taskList = rebar == IntPtr.Zero ? IntPtr.Zero : TaskbarNative.FindWindowEx(rebar, IntPtr.Zero, "MSTaskSwWClass", null);
             if (taskList == IntPtr.Zero) taskList = TaskbarNative.FindWindowEx(handle, IntPtr.Zero, "MSTaskSwWClass", null);
-            if (taskList == IntPtr.Zero || !TaskbarNative.GetWindowRect(taskList, out var listNative)) return null;
+            if (taskList == IntPtr.Zero || !TaskbarNative.GetWindowRect(taskList, out var listNative))
+                return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
             var listBounds = Rectangle.FromLTRB(listNative.Left, listNative.Top, listNative.Right, listNative.Bottom);
-            if (listBounds.Width <= 0 || !bounds.IntersectsWith(listBounds)) return null;
+            if (listBounds.Width <= 0 || !bounds.IntersectsWith(listBounds))
+                return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
             leading = Rectangle.FromLTRB(bounds.Left, bounds.Top, Math.Max(bounds.Left, listBounds.Left), bounds.Bottom);
             budget = 100;
             CollectFirstButton(AutomationElement.FromHandle(taskList), bounds, 0, ref budget, ref firstButton);
+            if (budget <= 0 || stop.IsCancellationRequested)
+                return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
         }
-        if (firstButton >= bounds.Right) return null;
+        if (firstButton >= bounds.Right) return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
         var dpi = Math.Max(96, (int)TaskbarNative.GetDpiForWindow(handle));
-        return new TaskbarSnapshot(handle, bounds, leading, firstButton, dpi, DateTime.UtcNow);
+        return new TaskbarObservation(TaskbarObservationKind.LayoutMeasured,
+            new TaskbarSnapshot(handle, bounds, leading, firstButton, dpi, DateTime.UtcNow));
     }
 
     private AutomationElement? FindFrame(AutomationElement node, int depth, ref int budget)

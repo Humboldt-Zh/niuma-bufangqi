@@ -14,6 +14,7 @@ internal sealed class TaskbarEntry : IDisposable
     private readonly ToolTip tooltip = new();
     private readonly System.Windows.Forms.Timer placementTimer = new() { Interval = 500 };
     private readonly TaskbarMonitor monitor = new();
+    private readonly TaskbarLayoutCache layoutCache = new();
     private Surface? surface;
     private TaskbarPresentation presentation = new("牛马不放器", "牛马不放器", "点击设置薪资");
     private TaskbarPalette palette = TaskbarPalette.Read();
@@ -29,6 +30,7 @@ internal sealed class TaskbarEntry : IDisposable
     private bool enabled = true;
     private bool disposed;
     private bool refreshing;
+    private string? diagnosticState;
 
     internal TaskbarEntry(Action togglePanel, Action openMenu)
     {
@@ -38,6 +40,7 @@ internal sealed class TaskbarEntry : IDisposable
     }
 
     internal event EventHandler? AttachmentChanged;
+    internal event Action<string>? Diagnostic;
     internal IntPtr ParentHwnd => attached ? parent : IntPtr.Zero;
     internal bool IsPointerOverEntry => TryGetScreenBounds(out var bounds) && bounds.Contains(Cursor.Position);
 
@@ -83,39 +86,47 @@ internal sealed class TaskbarEntry : IDisposable
         refreshing = true;
         try
         {
-            if (!enabled) { HideSurface(); return; }
-            var snapshot = monitor.Latest;
-            if (snapshot is null || DateTime.UtcNow - snapshot.CapturedAt > TimeSpan.FromSeconds(4)
-                || !TaskbarNative.IsWindow(snapshot.Handle) || !TaskbarNative.IsWindowVisible(snapshot.Handle)
-                || !TaskbarNative.GetWindowRect(snapshot.Handle, out var actual)) { HideSurface(); return; }
+            if (!enabled) { layoutCache.Reset(); HideSurface("disabled"); return; }
+            // Always validate native identity and geometry independently of UIA. A
+            // transient accessibility-tree rebuild must not prevent the normal
+            // redraw/z-order restoration below from running.
+            var currentHandle = TaskbarNative.FindWindow("Shell_TrayWnd", null);
+            if (currentHandle == IntPtr.Zero || !TaskbarNative.IsWindow(currentHandle)
+                || !TaskbarNative.IsWindowVisible(currentHandle)
+                || !TaskbarNative.GetWindowRect(currentHandle, out var actual))
+            { layoutCache.Reset(); HideSurface("native-unavailable"); return; }
             var actualBounds = Rectangle.FromLTRB(actual.Left, actual.Top, actual.Right, actual.Bottom);
-            // UIA and native geometry must describe the same layout. Wait for a fresh
-            // snapshot while the taskbar moves, instead of using a guessed position.
-            if (actualBounds != snapshot.Bounds) { HideSurface(); return; }
-            var visiblePart = Rectangle.Intersect(Screen.FromHandle(snapshot.Handle).Bounds, actualBounds);
-            if (visiblePart.Height < Math.Max(16, 24 * snapshot.Dpi / 96)) { HideSurface(); return; }
+            var currentDpi = Math.Max(96, (int)TaskbarNative.GetDpiForWindow(currentHandle));
+            var visiblePart = Rectangle.Intersect(Screen.FromHandle(currentHandle).Bounds, actualBounds);
+            if (visiblePart.Height < Math.Max(16, 24 * currentDpi / 96))
+            { layoutCache.Reset(); HideSurface("native-hidden"); return; }
+            var observation = monitor.Latest;
+            var snapshot = layoutCache.Resolve(observation, currentHandle, actualBounds, currentDpi,
+                nativeVisible: true, enabled: true, DateTime.UtcNow);
+            if (snapshot is null) { HideSurface("layout-unavailable"); return; }
             dpi = snapshot.Dpi;
             palette = TaskbarPalette.Read();
             var widths = TaskbarRenderer.Measure(presentation, dpi);
             var placement = TaskbarLayout.PlaceAdaptive(snapshot.Bounds, snapshot.LeadingReserved, snapshot.ContentLeft,
                 widths.Normal, widths.Compact, dpi);
-            if (placement is null) { HideSurface(); return; }
+            if (placement is null) { HideSurface("no-safe-gap"); return; }
             EnsureSurface();
-            if (surface is null || !Attach(snapshot.Handle)) { HideSurface(); return; }
+            if (surface is null || !Attach(snapshot.Handle)) { HideSurface("attach-failed"); return; }
             var target = placement.Value.Bounds;
             compact = placement.Value.Compact;
             surfaceSize = target.Size;
             if (!TaskbarNative.SetWindowPos(surface.Handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height,
-                TaskbarNative.SwpNoActivate | TaskbarNative.SwpNoSendChanging)) { HideSurface(); return; }
-            if (!RenderSurface()) { HideSurface(); return; }
+                TaskbarNative.SwpNoActivate | TaskbarNative.SwpNoSendChanging)) { HideSurface("position-failed"); return; }
+            if (!RenderSurface()) { HideSurface("render-failed"); return; }
             TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwShowNoActivate);
             var newBounds = new Rectangle(snapshot.Bounds.Left + target.X, snapshot.Bounds.Top + target.Y, target.Width, target.Height);
             var changed = !attached || parent != snapshot.Handle || screenBounds != newBounds;
             parent = snapshot.Handle; screenBounds = newBounds; attached = true;
+            ReportDiagnostic(observation?.Kind == TaskbarObservationKind.LayoutMeasured ? "shown-measured" : "shown-cached-layout");
             if (changed) AttachmentChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or ExternalException)
-        { HideSurface(); }
+        { HideSurface("refresh-error"); }
         finally { refreshing = false; }
     }
 
@@ -152,12 +163,20 @@ internal sealed class TaskbarEntry : IDisposable
         return TaskbarNative.GetParent(handle) == taskbar;
     }
 
-    private void HideSurface()
+    private void HideSurface(string reason)
     {
         if (surface is { IsDisposed: false, IsHandleCreated: true }) TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwHide);
         var changed = attached;
         attached = false; parent = IntPtr.Zero; screenBounds = Rectangle.Empty;
+        ReportDiagnostic("hidden-" + reason);
         if (changed) AttachmentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ReportDiagnostic(string state)
+    {
+        if (diagnosticState == state) return;
+        diagnosticState = state;
+        Diagnostic?.Invoke(state);
     }
 
     private bool RenderSurface()
@@ -194,6 +213,7 @@ internal sealed class TaskbarEntry : IDisposable
         disposed = true;
         placementTimer.Stop(); placementTimer.Dispose();
         monitor.Dispose(); tooltip.Dispose();
+        layoutCache.Reset();
         surface?.Dispose(); surface = null;
         attached = false; parent = IntPtr.Zero; screenBounds = Rectangle.Empty;
     }

@@ -4,13 +4,13 @@
 
 牛马不放器是面向 Windows 的本地桌面工具。收益和状态信息显示在任务栏内的一个入口中：点击打开新版面板，再点击同一入口收起。面板自身不增加普通任务栏按钮；系统托盘保留恢复与退出入口。界面使用 HTML/CSS/JavaScript，宿主使用 .NET 10、WPF、WinForms 和 WebView2。
 
-当前为 **0.1.1 开发预览版**。本版改为任务栏内入口，不再创建工作区底部的绿色悬浮卡片。新的任务栏模式仍待人工验收，具体构建与实测结果以 [验证记录](docs/verification.md) 为准。仓库保留独立的浏览器交互演示。
+当前为 **0.1.2 开发预览版**。本版改为任务栏内入口，不再创建工作区底部的绿色悬浮卡片。新的任务栏模式仍待人工验收，具体构建与实测结果以 [验证记录](docs/verification.md) 为准。仓库保留独立的浏览器交互演示。
 
 [GitHub 仓库](https://github.com/Humboldt-Zh/niuma-bufangqi) · [构建与测试](https://github.com/Humboldt-Zh/niuma-bufangqi/actions) · [发布页](https://github.com/Humboldt-Zh/niuma-bufangqi/releases)
 
 ![界面演示：情绪回应与休息入口](docs/screenshots/feel.png)
 
-截图来自此前的浏览器演示，只用于说明面板内容，不能证明 0.1.1 的原生任务栏模式已通过实测。
+截图来自此前的浏览器演示，只用于说明面板内容，不能证明 0.1.2 的原生任务栏模式已通过实测。
 
 ## 功能
 
@@ -26,9 +26,9 @@
 
 首版面向 Windows 11 x64。需要 **Microsoft Edge WebView2 Evergreen Runtime**；程序会检测缺失情况并引导到 [Microsoft 官方下载页](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)。Windows 11 通常已包含该运行时，仍需以本机检测结果为准。
 
-解压明确标记为 0.1.1 的 win-x64 ZIP，在固定目录运行其中的 `NiumaBufangqi.exe`。发布目录包含自带的 .NET 运行时，无需另外安装 .NET；WebView2 Runtime 是单独的前置依赖。
+解压明确标记为 0.1.2 的 win-x64 ZIP，在固定目录运行其中的 `NiumaBufangqi.exe`。发布目录包含自带的 .NET 运行时，无需另外安装 .NET；WebView2 Runtime 是单独的前置依赖。
 
-升级前请从退出菜单彻底结束旧薪资时钟和 0.1.0 绿色浮窗版。0.1.1 检测到旧 `SalaryClock` 进程，或同一配置正在被其他目录中的牛马不放器使用时，会提示先退出旧版本，不叠加新入口，也不激活另一目录中的旧界面。它不会自动结束其他程序、替换旧入口或接管启动项；已经运行的两个旧版本仍需用户各自退出。已有 `%LOCALAPPDATA%\NiumaBufangqi\state.json` 中的设置继续使用，无需重填。完整步骤见 [手动升级与验收](docs/manual-upgrade.md)。
+升级前请从退出菜单彻底结束旧薪资时钟和 0.1.0 绿色浮窗版。0.1.2 检测到旧 `SalaryClock` 进程，或同一配置正在被其他目录中的牛马不放器使用时，会提示先退出旧版本，不叠加新入口，也不激活另一目录中的旧界面。它不会自动结束其他程序、替换旧入口或接管启动项；已经运行的两个旧版本仍需用户各自退出。已有 `%LOCALAPPDATA%\NiumaBufangqi\state.json` 中的设置继续使用，无需重填。完整步骤见 [手动升级与验收](docs/manual-upgrade.md)。
 
 再次点击任务栏入口、面板关闭按钮或普通页面的 `Esc` 都可收起面板。要彻底结束程序，使用任务栏入口右键菜单或系统托盘中的“退出”。开机启动开关反映当前 EXE 的实际启动项；换到新目录后未勾选属于正常情况，是否开启由用户决定。开启后只写当前 Windows 用户的启动项，无需管理员权限。升级后的快捷方式和自启动目标由用户主动确认；移动程序前先关闭旧启动项。
 
@@ -106,3 +106,4 @@ npm start
 ## 许可证
 
 本项目原创代码、图形和文案使用 [MIT License](LICENSE)。依赖及运行时保留各自许可，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。
+

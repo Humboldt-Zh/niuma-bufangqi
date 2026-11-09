@@ -74,6 +74,7 @@ public partial class App : Application
             State = State with { StartWithWindows = IsCurrentStartupConfigured() };
             panel = new PanelWindow(this);
             entry = new TaskbarEntry(TogglePanel, ShowMenu);
+            entry.Diagnostic += state => Log("taskbar-" + state);
             entry.AttachmentChanged += (_, _) =>
             {
                 if (!Exiting && !Dispatcher.HasShutdownStarted)
@@ -310,7 +311,7 @@ public partial class App : Application
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException) { Log("external-link", exception); panel.SendError("系统浏览器没有打开，请稍后重试。"); }
     }
 
-    internal void Log(string operation, Exception exception)
+    internal void Log(string operation, Exception? exception = null)
     {
         try
         {
@@ -319,7 +320,7 @@ public partial class App : Application
             var file = Path.Combine(logs, "app.log");
             if (File.Exists(file) && new FileInfo(file).Length > 256 * 1024) File.Move(file, file + ".previous", true);
             // Deliberately exclude exception messages, payloads, salary and written thoughts.
-            File.AppendAllText(file, $"{DateTimeOffset.Now:O} {operation} {exception.GetType().Name}{Environment.NewLine}");
+            File.AppendAllText(file, $"{DateTimeOffset.Now:O} {operation} {exception?.GetType().Name ?? "State"}{Environment.NewLine}");
         }
         catch (Exception logError) when (logError is IOException or UnauthorizedAccessException) { }
     }

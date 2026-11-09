@@ -5,5 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/TaskbarLayout.cs" Link="TaskbarLayout.cs" />
+    <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/TaskbarObservation.cs" Link="TaskbarObservation.cs" />
+    <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/TaskbarLayoutCache.cs" Link="TaskbarLayoutCache.cs" />
   </ItemGroup>
 </Project>
