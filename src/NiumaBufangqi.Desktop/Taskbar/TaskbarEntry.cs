@@ -103,7 +103,7 @@ internal sealed class TaskbarEntry : IDisposable
             var observation = monitor.Latest;
             var snapshot = layoutCache.Resolve(observation, currentHandle, actualBounds, currentDpi,
                 nativeVisible: true, enabled: true, DateTime.UtcNow);
-            if (snapshot is null) { HideSurface("layout-unavailable"); return; }
+            if (snapshot is null) { HideSurface(observation?.Kind == TaskbarObservationKind.LayoutOccluded ? "occluded-layout-unconfirmed" : "layout-unavailable"); return; }
             dpi = snapshot.Dpi;
             palette = TaskbarPalette.Read();
             var widths = TaskbarRenderer.Measure(presentation, dpi);
@@ -122,7 +122,12 @@ internal sealed class TaskbarEntry : IDisposable
             var newBounds = new Rectangle(snapshot.Bounds.Left + target.X, snapshot.Bounds.Top + target.Y, target.Width, target.Height);
             var changed = !attached || parent != snapshot.Handle || screenBounds != newBounds;
             parent = snapshot.Handle; screenBounds = newBounds; attached = true;
-            ReportDiagnostic(observation?.Kind == TaskbarObservationKind.LayoutMeasured ? "shown-measured" : "shown-cached-layout");
+            ReportDiagnostic(observation?.Kind switch
+            {
+                TaskbarObservationKind.LayoutMeasured => "shown-measured",
+                TaskbarObservationKind.LayoutOccluded => "shown-geometry-confirmed",
+                _ => "shown-cached-layout"
+            });
             if (changed) AttachmentChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or ExternalException)

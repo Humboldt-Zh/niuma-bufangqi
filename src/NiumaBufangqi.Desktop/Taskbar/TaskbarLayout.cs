@@ -8,6 +8,16 @@ internal readonly record struct TaskbarPlacement(Rectangle Bounds, bool Compact)
 /// <summary>Pure geometry: only use the measured gap before the first application button.</summary>
 internal static class TaskbarLayout
 {
+    internal static bool IsButtonWithinTaskbar(Rectangle button, Rectangle taskbar)
+    {
+        if (button.Width <= 0 || button.Height <= 0 || taskbar.Width <= 0 || taskbar.Height <= 0) return false;
+        const int roundingTolerance = 2;
+        return (long)button.Left >= (long)taskbar.Left - roundingTolerance
+            && (long)button.Top >= (long)taskbar.Top - roundingTolerance
+            && (long)button.Left + button.Width <= (long)taskbar.Left + taskbar.Width + roundingTolerance
+            && (long)button.Top + button.Height <= (long)taskbar.Top + taskbar.Height + roundingTolerance;
+    }
+
     internal static TaskbarPlacement? PlaceAdaptive(Rectangle taskbar, Rectangle? leadingReserved,
         int contentLeft, int normalContentWidth, int compactContentWidth, int dpi)
     {

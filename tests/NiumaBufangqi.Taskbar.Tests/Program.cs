@@ -9,11 +9,97 @@ var nativeHandle = new IntPtr(101);
 TaskbarSnapshot Sample(double capturedSeconds = 0, int contentLeft = 800, IntPtr? handle = null, Rectangle? bounds = null, int dpi = 96) =>
     new(handle ?? nativeHandle, bounds ?? bar, weather, contentLeft, dpi, clock.AddSeconds(capturedSeconds));
 TaskbarObservation Measured(TaskbarSnapshot snapshot) => new(TaskbarObservationKind.LayoutMeasured, snapshot);
+TaskbarObservation Occluded(TaskbarSnapshot snapshot) => new(TaskbarObservationKind.LayoutOccluded, snapshot);
 TaskbarSnapshot? Resolve(TaskbarLayoutCache cache, TaskbarObservation? observation, double seconds,
     IntPtr? handle = null, Rectangle? bounds = null, int dpi = 96, bool visible = true, bool enabled = true) =>
     cache.Resolve(observation, handle ?? nativeHandle, bounds ?? bar, dpi, visible, enabled, clock.AddSeconds(seconds));
 var tests = new (string Name, Action Run)[]
 {
+    ("An overlay-sized accessibility rectangle cannot masquerade as a taskbar button", () =>
+    {
+        Assert(TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(600, 1000, 48, 48), bar), "A genuine taskbar button should be accepted.");
+        Assert(TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(600, 999, 48, 50), bar), "Subpixel rounding should have a bounded tolerance.");
+        Assert(!TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(0, 0, 1920, 1048), bar), "A Start overlay extending above the bar is not button geometry.");
+        Assert(!TaskbarLayout.IsButtonWithinTaskbar(new Rectangle(1900, 1000, 100, 48), bar), "Geometry extending beyond the bar must not create a false free gap.");
+    }),
+    ("Fresh agreeing occluded geometry keeps a long-open shell menu from expiring the entry", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Equal(Sample(), Resolve(cache, Measured(Sample()), 0));
+        TaskbarSnapshot? confirmed = null;
+        foreach (var second in Enumerable.Range(1, 15))
+        {
+            var current = Sample(second);
+            confirmed = Resolve(cache, Occluded(current), second);
+            Equal(current, confirmed);
+        }
+        Equal(confirmed, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 18));
+        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 19.001));
+    }),
+    ("Occluded geometry cannot invent a baseline or replace a measured slot with a different one", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample()), 0));
+        foreach (var changed in new[] { Sample(1, contentLeft: 790), Sample(1) with { LeadingReserved = null } })
+        {
+            Resolve(cache, Measured(Sample()), 0);
+            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(changed), 1));
+            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.1));
+            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1.2)), 1.2));
+        }
+        Resolve(cache, Measured(Sample()), 0);
+        var blocked = Sample(1, contentLeft: 200);
+        Equal(blocked, Resolve(cache, Measured(blocked), 1));
+        Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1.5)), 1.5));
+        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.6));
+    }),
+    ("A cleared native context cannot be revived by offscreen geometry alone", () =>
+    {
+        foreach (var invalid in Enumerable.Range(0, 6))
+        {
+            var cache = new TaskbarLayoutCache();
+            Resolve(cache, Measured(Sample()), 0);
+            TaskbarSnapshot? invalidated = invalid switch
+            {
+                0 => Resolve(cache, new(TaskbarObservationKind.NativeUnavailable), .5),
+                1 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, visible: false),
+                2 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, enabled: false),
+                3 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, handle: new IntPtr(202)),
+                4 => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, bounds: new Rectangle(-1920, 1000, 1920, 48)),
+                _ => Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), .5, dpi: 144)
+            };
+            Equal<TaskbarSnapshot?>(null, invalidated);
+            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1)), 1));
+        }
+    }),
+    ("A fresh matching geometry proof can recover an expired baseline while unknown reads stay hidden", () =>
+    {
+        var cache = new TaskbarLayoutCache();
+        Resolve(cache, Measured(Sample()), 0);
+        Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 5));
+        Equal<TaskbarSnapshot?>(null, Resolve(cache, null, 8));
+        var confirmed = Sample(9);
+        Equal(confirmed, Resolve(cache, Occluded(confirmed), 9));
+        Equal(confirmed, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 9.5));
+    }),
+    ("Malformed or temporally invalid occluded proofs clear the baseline", () =>
+    {
+        foreach (var invalid in Enumerable.Range(0, 4))
+        {
+            var cache = new TaskbarLayoutCache();
+            Resolve(cache, Measured(Sample()), 0);
+            var result = invalid switch
+            {
+                0 => Resolve(cache, new(TaskbarObservationKind.LayoutOccluded), 1),
+                1 => Resolve(cache, Occluded(Sample(-4.01)), 1),
+                2 => Resolve(cache, Occluded(Sample(2)), 1),
+                _ => Resolve(cache, Occluded(Sample(-1)), -1)
+            };
+            Equal<TaskbarSnapshot?>(null, result);
+            Equal<TaskbarSnapshot?>(null, Resolve(cache, new(TaskbarObservationKind.LayoutUnknown), 1.1));
+            Equal<TaskbarSnapshot?>(null, Resolve(cache, Occluded(Sample(1.2)), 1.2));
+        }
+    }),
     ("A brief unknown layout preserves the existing entry until a fresh measurement arrives", () =>
     {
         var cache = new TaskbarLayoutCache();

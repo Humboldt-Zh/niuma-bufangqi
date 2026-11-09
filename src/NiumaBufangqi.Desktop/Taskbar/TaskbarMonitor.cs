@@ -49,6 +49,7 @@ internal sealed class TaskbarMonitor : IDisposable
         var frame = FindFrame(root, 0, ref budget);
         Rectangle? leading = null;
         int firstButton = bounds.Right;
+        var geometryOnly = false;
         if (frame is not null)
         {
             var button = TreeWalker.RawViewWalker.GetFirstChild(frame);
@@ -56,8 +57,15 @@ internal sealed class TaskbarMonitor : IDisposable
             while (button is not null && count++ < 100 && !stop.IsCancellationRequested)
             {
                 var current = button.Current;
-                if (current.ControlType == ControlType.Button && !current.IsOffscreen && TryBounds(current.BoundingRectangle, bounds, out var rect))
+                if (current.ControlType == ControlType.Button && TryBounds(current.BoundingRectangle, bounds, out var rect))
                 {
+                    // Start/Search overlays can change IsOffscreen while the button's
+                    // native taskbar geometry remains intact. Keep that geometry as
+                    // an explicitly weaker observation; the cache accepts it only
+                    // when it agrees with a previous fully visible measurement.
+                    if (!TaskbarLayout.IsButtonWithinTaskbar(rect, bounds))
+                        return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
+                    geometryOnly |= current.IsOffscreen;
                     if (current.AutomationId == "WidgetsButton") leading = rect;
                     else firstButton = Math.Min(firstButton, rect.Left);
                 }
@@ -86,7 +94,7 @@ internal sealed class TaskbarMonitor : IDisposable
         }
         if (firstButton >= bounds.Right) return new TaskbarObservation(TaskbarObservationKind.LayoutUnknown, null);
         var dpi = Math.Max(96, (int)TaskbarNative.GetDpiForWindow(handle));
-        return new TaskbarObservation(TaskbarObservationKind.LayoutMeasured,
+        return new TaskbarObservation(geometryOnly ? TaskbarObservationKind.LayoutOccluded : TaskbarObservationKind.LayoutMeasured,
             new TaskbarSnapshot(handle, bounds, leading, firstButton, dpi, DateTime.UtcNow));
     }
 

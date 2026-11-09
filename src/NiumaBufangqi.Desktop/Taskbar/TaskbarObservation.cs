@@ -11,7 +11,10 @@ internal enum TaskbarObservationKind
 {
     NativeUnavailable,
     LayoutUnknown,
-    LayoutMeasured
+    LayoutMeasured,
+    // Complete geometry reported while UIA marks taskbar buttons offscreen.
+    // It may confirm an existing measured layout, never establish a new one.
+    LayoutOccluded
 }
 
 internal sealed record TaskbarObservation(TaskbarObservationKind Kind, TaskbarSnapshot? Snapshot = null);
