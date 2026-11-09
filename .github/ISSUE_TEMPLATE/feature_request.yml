@@ -1,0 +1,14 @@
+name: 功能或话术建议
+description: 描述一个具体打工场景
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 什么时刻，你希望软件帮上忙？
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 你的建议
+      description: 话术请注明是否原创；引用他人素材请提供原始链接与许可。

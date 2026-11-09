@@ -1,0 +1,230 @@
+/* A little paper ritual, kept inside the taskbar panel. All artwork is local. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.paper-overlay[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  overflow: hidden;
+  background: #f8f7ef;
+  border: 1px solid #d4dcc8;
+  text-align: left;
+  box-shadow: 0 15px 48px -10px #26341c33;
+}
+
+.paper-toolbar {
+  height: 43px;
+  flex: 0 0 43px;
+  padding: 0 12px 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e6e9dc;
+  background: #fafbf4;
+}
+.paper-toolbar > span { display: flex; align-items: center; gap: 8px; color: #849273; font-size: 11px; }
+.paper-toolbar > span > svg { width: 16px; height: 16px; }
+.paper-toolbar .icon-button { width: 30px; height: 29px; }
+.paper-flow-content { flex: 1; min-height: 0; padding: 24px 27px 25px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #d3dbc6 transparent; }
+.paper-step-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; color: #a7ad96; font-size: 9px; letter-spacing: .5px; }
+#paperStep { color: #8b9b72; }
+.paper-overlay h2 { font-size: 22px; line-height: 1.6; margin: 0 0 7px; color: #566548; letter-spacing: .2px; }
+.paper-overlay p { margin: 0; }
+#paperSubtitle { font-size: 11px; color: #a1a78f; line-height: 1.9; min-height: 21px; }
+
+.thought-paper {
+  position: relative;
+  margin: 25px 4px 0;
+  padding: 18px 21px 13px;
+  background: #fffdf5;
+  border: 1px solid #e7e2d1;
+  box-shadow: 0 5px 12px -6px #83775622;
+  transform: rotate(-1.4deg);
+  clip-path: polygon(0 0, 96% 0, 100% 7%, 100% 99%, 92% 100%, 80% 99%, 69% 100%, 51% 99.4%, 33% 100%, 18% 99%, 0 100%);
+}
+.thought-paper::before { content: ''; position: absolute; right: 0; top: 0; width: 19px; height: 19px; background: #e9e4d4; clip-path: polygon(0 0, 0 100%, 100% 100%); }
+.paper-date { display: block; color: #b3ac96; font-size: 9px; letter-spacing: 1.5px; margin-bottom: 14px; }
+#paperThought {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 160px;
+  resize: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  padding: 0 1px;
+  color: #74715f;
+  font: 14px/32px "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  background: repeating-linear-gradient(transparent 0, transparent 31px, #dcd9cb70 31px, #dcd9cb70 32px);
+  caret-color: #7a8c60;
+}
+#paperThought::placeholder { color: #c1baa4; font-size: 13px; }
+#paperThought:focus-visible { outline: none; }
+.thought-paper:focus-within { border-color: #bdc6aa; }
+.thought-paper-bottom { display: flex; align-items: center; gap: 5px; color: #b8b39e; font-size: 8px; margin-top: 12px; }
+.thought-paper-bottom > svg { width: 12px; height: 12px; stroke-width: 1.3; }
+#paperChars { margin-left: auto; font-variant-numeric: tabular-nums; }
+.paper-prompt-label { color: #a4ab92; font-size: 9px; margin-top: 23px; margin-bottom: 10px; }
+.paper-prompts { display: flex; flex-wrap: wrap; gap: 7px; }
+.paper-prompts button { border: 1px solid #dfe5d3; border-radius: 7px; background: #f8faf1; color: #92a17c; padding: 7px 10px; font-size: 10px; transition: background .15s, border-color .15s; }
+.paper-prompts button:hover { border-color: #b8c69e; background: #eaf0df; }
+.paper-prompts button.selected { border-color: #bac8a4; background: #e9efdc; }
+.paper-start { display: flex; width: 100%; min-height: 42px; font-size: 12px; margin-top: 24px; border-radius: 9px; }
+.paper-start > svg:last-child { margin-left: auto; }
+.paper-start > svg:first-child { margin-right: auto; }
+.paper-overlay .paper-privacy { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 9px; color: #aeb59e; line-height: 1.9; margin: 13px 0 0; }
+.paper-privacy > svg { width: 11px; height: 11px; stroke-width: 1.3; }
+
+.paper-squeeze-meter { display: flex; justify-content: center; gap: 7px; margin: 22px 0 3px; }
+.paper-play { animation: paper-result-in .25s ease-out both; }
+.paper-squeeze-meter > i { width: 24px; height: 3px; border-radius: 3px; background: #e3e6d8; transition: background .18s, width .18s; }
+.paper-squeeze-meter > i.complete { background: #a9ba8c; }
+.paper-arena { position: relative; height: 330px; isolation: isolate; }
+.paper-toy {
+  --paper-drag-x: 0px;
+  --paper-drag-y: 0px;
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 12px;
+  width: 190px;
+  height: 190px;
+  padding: 0;
+  transform: translate(calc(-50% + var(--paper-drag-x)), var(--paper-drag-y));
+  transform-origin: 50% 50%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  -webkit-user-drag: none;
+}
+.paper-toy:focus-visible { outline-offset: -11px; border-radius: 42%; }
+.paper-mini-sheet { position: absolute; inset: 7px 20px; display: block; transform: rotate(9deg) scale(.92, .94); filter: drop-shadow(3px 8px 4px #695f3e1c); transition: transform .34s cubic-bezier(.2,.8,.2,1), opacity .25s, clip-path .3s; }
+.paper-mini-sheet > svg { width: 100%; height: 100%; fill: none; stroke: none; }
+#paperPreview { position: absolute; left: 25px; top: 36px; width: 96px; font-size: 9px; line-height: 2.7; text-align: left; color: #8e8b7a; overflow: hidden; height: 88px; overflow-wrap: anywhere; transform: rotate(-2deg); }
+.paper-ball-image { width: 151px; height: 151px; position: absolute; left: 19px; top: 19px; object-fit: contain; opacity: 0; transform: rotate(-20deg) scale(.62); filter: drop-shadow(1px 7px 4px #6f695527); transition: opacity .3s, transform .35s cubic-bezier(.22,.8,.3,1); pointer-events: none; }
+.paper-toy-shadow { position: absolute; z-index: -1; bottom: 10px; left: 41px; width: 106px; height: 10px; border-radius: 50%; background: #b9bda94a; filter: blur(4px); transition: transform .3s, opacity .2s; }
+[data-squeeze="1"] .paper-mini-sheet { clip-path: polygon(8% 5%, 85% 0, 99% 20%, 94% 75%, 76% 97%, 18% 94%, 0 68%, 6% 43%); transform: rotate(16deg) scale(.85, .9); }
+[data-squeeze="2"] .paper-mini-sheet { clip-path: polygon(19% 6%, 60% 0, 86% 15%, 100% 55%, 76% 96%, 37% 100%, 3% 71%, 0 33%); transform: rotate(-17deg) scale(.65, .72); opacity: .7; }
+[data-squeeze="2"] .paper-ball-image { opacity: .52; transform: rotate(18deg) scale(.72); }
+[data-squeeze="3"] .paper-mini-sheet { transform: rotate(35deg) scale(.32); opacity: 0; }
+[data-squeeze="3"] .paper-ball-image { transform: rotate(4deg) scale(1); opacity: 1; }
+[data-squeeze="3"] .paper-toy-shadow { transform: scale(.85); }
+.paper-toy.squeezing .paper-mini-sheet, .paper-toy.squeezing .paper-ball-image { animation: squeeze-paper .3s ease-in-out; }
+[data-stage="ready"] .paper-toy { cursor: grab; }
+[data-stage="ready"] .paper-toy:active, .paper-toy.dragging { cursor: grabbing; }
+.paper-toy.dragging .paper-ball-image { filter: drop-shadow(3px 13px 6px #6f695536); }
+.paper-toy.dragging .paper-toy-shadow { opacity: 0; }
+.paper-toy.returning { transition: transform .4s cubic-bezier(.18,.84,.3,1.2); }
+.paper-toy.throwing { pointer-events: none; animation: toss-paper .65s cubic-bezier(.4,0,.55,1) forwards; }
+.paper-toy.throwing .paper-toy-shadow { opacity: 0; }
+[data-stage="landed"] .paper-toy, [data-stage="done"] .paper-toy { opacity: 0; pointer-events: none; }
+
+.paper-flight-path { position: absolute; left: calc(50% + 35px); top: 126px; width: 71px; height: 91px; opacity: 0; transition: opacity .3s; color: #b6c39f; z-index: -1; }
+.paper-flight-path svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-dasharray: 3 6; }
+.paper-flight-path svg path:last-child { stroke-dasharray: none; }
+[data-stage="ready"] .paper-flight-path { opacity: .8; }
+.paper-bin { position: absolute; z-index: 1; width: 120px; height: 128px; left: 50%; bottom: -2px; transform: translateX(-50%); display: flex; align-items: center; flex-direction: column; }
+.paper-bin > svg { width: 108px; height: 104px; stroke: none; overflow: visible; }
+.paper-bin-glow { position: absolute; z-index: -1; inset: -4px -6px 12px; border-radius: 50%; background: #dde9cd80; opacity: 0; transform: scale(.8); transition: opacity .2s, transform .2s; }
+.paper-bin.targeted .paper-bin-glow, .paper-bin.is-over .paper-bin-glow, .paper-bin.hover .paper-bin-glow { opacity: 1; transform: scale(1); }
+.paper-bin-caption { white-space: nowrap; font-size: 9px; color: #adb59b; letter-spacing: .3px; margin-top: 2px; }
+[data-stage="landed"] .paper-bin { animation: basket-bounce .6s ease; }
+[data-stage="landed"] .paper-bin::after { content: '咚，收下了。'; position: absolute; top: -19px; white-space: nowrap; font-size: 11px; color: #83986a; animation: landed-caption .6s ease-out both; }
+.paper-play-feedback { text-align: center; padding-top: 16px; }
+#paperHint { color: #8b9b76; font-size: 11px; line-height: 1.9; min-height: 24px; }
+#paperThrow { margin-top: 15px; font-size: 11px; padding: 10px 23px; }
+.paper-keyboard-tip { display: block; font-size: 9px; color: #b1b8a2; margin-top: 12px; }
+[data-stage="ready"] .paper-keyboard-tip { font-size: 0; }
+[data-stage="ready"] .paper-keyboard-tip::after { content: '也可以拖动纸团，丢进下面的纸篓。'; font-size: 9px; }
+[data-stage="throwing"] #paperThrow { opacity: .4; pointer-events: none; }
+
+.paper-result { text-align: center; padding-top: 26px; animation: paper-result-in .45s ease-out both; }
+.paper-result-art { position: relative; width: 174px; height: 170px; margin: 0 auto 17px; color: #e5cf88; }
+.paper-result-art > svg { width: 166px; height: 153px; stroke: none; position: absolute; left: 0; bottom: 4px; }
+.paper-result-orbit { position: absolute; inset: 4px 2px 4px 2px; border-radius: 50%; border: 1px dashed #d6dfc5; transform: rotate(-14deg); }
+.paper-result-check { position: absolute; right: -1px; bottom: 17px; background: #9db481; border: 4px solid #f8f7ef; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #fffef6; }
+.paper-result-check > svg { width: 17px; height: 17px; stroke-width: 2.4; }
+.paper-result-tag { display: inline-block; color: #9cab84; font-size: 9px; letter-spacing: 1px; margin-bottom: 13px; }
+.paper-result h3 { color: #61754e; font-size: 24px; line-height: 1.6; font-weight: 500; margin: 0 0 13px; }
+#paperResultCopy { color: #9aa58a; font-size: 12px; line-height: 2; max-width: 350px; margin: 0 auto; min-height: 48px; }
+.paper-result-actions { display: flex; justify-content: center; gap: 10px; margin: 30px 0 17px; }
+.paper-result-actions button { font-size: 11px; padding: 11px 14px; }
+#paperDone { margin: 0 auto; color: #a7b096; font-size: 10px; }
+#paperDone svg { width: 13px; height: 13px; }
+[data-stage="done"] #paperTitle, [data-stage="done"] #paperSubtitle { display: none; }
+[data-stage="done"] .paper-step-line { margin-bottom: 4px; }
+
+@keyframes squeeze-paper { 0%,100% { translate: 0 0; } 30% { translate: -3px 2px; } 65% { translate: 3px -1px; } }
+@keyframes toss-paper {
+  0% { transform: translate(calc(-50% + var(--paper-drag-x)), var(--paper-drag-y)) rotate(0deg) scale(1); }
+  38% { transform: translate(calc(-50% + (var(--paper-drag-x) + var(--paper-throw-x)) * .5), calc(var(--paper-drag-y) - 34px)) rotate(105deg) scale(.85); }
+  100% { transform: translate(calc(-50% + var(--paper-throw-x)), var(--paper-throw-y)) rotate(310deg) scale(.18); opacity: .65; }
+}
+@keyframes basket-bounce { 0%,100% { transform: translateX(-50%) rotate(0); } 22% { transform: translateX(-50%) translateY(4px) rotate(-4deg); } 52% { transform: translateX(-50%) translateY(-3px) rotate(3deg); } 77% { transform: translateX(-50%) rotate(-1deg); } }
+@keyframes landed-caption { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(-4px); } }
+@keyframes paper-result-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 460px) {
+  .paper-flow-content { padding: 20px 19px 23px; }
+  .paper-toolbar { padding-left: 17px; height: 40px; flex-basis: 40px; }
+  .paper-overlay h2 { font-size: 20px; }
+  #paperSubtitle { font-size: 10px; }
+  .paper-step-line { font-size: 8px; }
+  .thought-paper { margin-top: 21px; padding: 16px 17px 13px; }
+  #paperThought { height: 128px; font-size: 13px; }
+  #paperThought::placeholder { font-size: 12px; }
+  .paper-prompts { gap: 6px; }
+  .paper-prompts button { font-size: 9px; padding: 7px 8px; }
+  .paper-start { margin-top: 21px; }
+  .paper-arena { height: 290px; }
+  .paper-toy { top: -1px; width: 170px; height: 170px; }
+  .paper-mini-sheet { inset: 7px 18px; }
+  #paperPreview { top: 31px; left: 22px; width: 82px; font-size: 8px; line-height: 2.5; height: 78px; }
+  .paper-ball-image { width: 136px; height: 136px; left: 17px; top: 17px; }
+  .paper-toy-shadow { width: 90px; left: 40px; }
+  .paper-flight-path { top: 100px; left: calc(50% + 25px); }
+  .paper-bin { width: 107px; height: 116px; bottom: -2px; }
+  .paper-bin > svg { width: 95px; height: 93px; }
+  .paper-bin-caption { font-size: 8px; }
+  .paper-squeeze-meter { margin-top: 18px; }
+  .paper-play-feedback { padding-top: 13px; }
+  #paperHint { font-size: 10px; }
+  .paper-result { padding-top: 20px; }
+  .paper-result-art { width: 145px; height: 143px; margin-bottom: 13px; }
+  .paper-result-art > svg { width: 142px; height: 130px; }
+  .paper-result h3 { font-size: 21px; }
+  #paperResultCopy { font-size: 11px; }
+  .paper-result-actions { gap: 8px; margin-top: 24px; flex-wrap: wrap; }
+  .paper-result-actions button { font-size: 10px; padding: 10px 12px; }
+}
+
+@media (max-height: 740px) and (min-width: 461px) {
+  .paper-flow-content { padding-top: 19px; }
+  .thought-paper { margin-top: 19px; }
+  #paperThought { height: 128px; }
+  .paper-arena { height: 290px; }
+  .paper-toy { top: -5px; }
+  .paper-result { padding-top: 14px; }
+  .paper-result-art { height: 145px; }
+  .paper-result-art > svg { width: 142px; height: 132px; left: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-toy.throwing { animation-duration: .08s; }
+  .paper-toy.returning { transition-duration: .08s; }
+  .paper-result, .paper-bin, .paper-mini-sheet, .paper-ball-image { animation: none !important; transition: none; }
+}

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="theme-color" content="#efeee7">
+  <meta name="description" content="牛马不放器：给打工人的一点精神补给。离线运行的 Windows 桌面安慰小工具。">
+  <title>牛马不放器 · 今天这班</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="panel-layout.css">
+  <link rel="stylesheet" href="paper-play.css">
+  <link rel="stylesheet" href="desktop.css">
+  <script src="model.js" defer></script>
+  <script src="desktop-bridge.js" defer></script>
+  <script src="app.js" defer></script>
+  <script src="paper-play.js" defer></script>
+</head>
+<body class="panel-open">
+<svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M4 8h12v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Zm12 1h2a3 3 0 0 1 0 6h-2M8 2v2m5-2v2M2 22h18"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3 1-1h4l1 3 2 1 3-.5 2 3-2 2v3l2 2-2 3-3-.5-2 1-1 3h-4l-1-3-2-1-3 .5-2-3 2-2v-3l-2-2 2-3 3 .5Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="m3 3 18 18M10 5.2c6-1 10 4.3 12 6.8a21 21 0 0 1-4 4.5M6.5 6.5A22 22 0 0 0 2 12s3.5 7 10 7a12 12 0 0 0 4.5-1M10 10a3 3 0 0 0 4 4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="m16 3 5 5-5 2-2 5-5-5 5-2 2-5ZM10 14l-7 7"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="m17 3 4 4-4 4m0 2 4 4-4 4M3 7h3c5 0 7 10 12 10h3M3 17h3c2.2 0 3.8-2 5-4m2-2c1.5-2.3 2.8-4 5-4h3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4 1-4-2-6-2m12 5v-4a3.5 3.5 0 0 0-1-3c3-.3 6-1.5 6-6a5 5 0 0 0-1.5-3.5 4.7 4.7 0 0 0-.1-3.5S17 1.5 14.7 3a12 12 0 0 0-5.4 0C7 1.5 5.6 2 5.6 2a4.7 4.7 0 0 0-.1 3.5A5 5 0 0 0 4 9c0 4.5 3 5.7 6 6a3.5 3.5 0 0 0-1 3v4"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 2.8 7.2L22 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8L12 2Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8V4Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 4v16M16 4v16"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 1 2 8 5 15s16 6 15-12ZM4 21 16 9M8 17l-1-5m4 1h5"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 2h8l5 5v15H6V2Zm8 0v6h5M9 12h7m-7 4h7"/></symbol>
+  <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1 3 4 3 4-3 4-3M8 9h.01M16 9h.01"/></symbol>
+  <symbol id="i-tired" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m7 9 3 1m4 0 3-1M9 16h6"/></symbol>
+  <symbol id="i-angry" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m7 8 3 2m4 0 3-2M9 16s1-2 3-2 3 2 3 2"/></symbol>
+  <symbol id="i-sleep" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7 10h3m4 0h3M10 16h4"/></symbol>
+  <symbol id="i-mascot" viewBox="0 0 240 220">
+    <path d="M33 182c-17-28 1-62 28-63 6-28 10-63 48-74l-6-27c15-8 35 2 38 21l19-2c5-20 22-29 36-24 6 14 0 30-8 40 29 20 33 51 21 77 24 10 32 32 20 53-21 25-170 24-196-1Z" fill="currentColor" stroke="#34372f" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M111 46c-7-22 18-24 21-6m32-3c6-17 20-18 19-8" fill="none" stroke="#34372f" stroke-width="3" stroke-linecap="round"/>
+    <path d="m106 79 18 3m27-1 17-4M128 102c4 8 12 8 17-1" fill="none" stroke="#34372f" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="106" cy="97" rx="10" ry="5" fill="#ef9b70" opacity=".55"/><ellipse cx="167" cy="94" rx="10" ry="5" fill="#ef9b70" opacity=".55"/>
+    <path d="M80 146c8 20 22 25 35 23m64-28c-14 23-29 26-43 23M57 181c14-4 31-3 42 0m66-1c14-3 31-4 46 0" fill="none" stroke="#34372f" stroke-width="3" stroke-linecap="round"/>
+    <path d="m121 126 13 5 15-6-7 17-1 15-12 5-7-10 7-17Z" fill="#60765f" stroke="#34372f" stroke-width="2"/>
+    <rect x="18" y="153" width="42" height="35" rx="8" fill="#fffdf3" stroke="#34372f" stroke-width="3"/><path d="M59 159c20-5 19 20 0 16M29 140c-6-8 5-9 0-17m14 16c-6-8 5-9 0-17" fill="none" stroke="#34372f" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<header class="prototype-bar">
+  <a class="prototype-brand" href="#today" aria-label="牛马不放器首页"><span class="brand-mark"><svg><use href="#i-smile"/></svg></span><strong>牛马不放器</strong><span class="prototype-badge">交互原型 0.1</span></a>
+  <div class="prototype-controls">
+    <div class="scene-picker"><button id="sceneTrigger" class="scene-trigger" aria-expanded="false" aria-controls="sceneMenu"><span class="live-dot"></span><span id="sceneLabel">演示 · 上班中</span><span class="chevron">⌄</span></button>
+      <div id="sceneMenu" class="dropdown" hidden><p>预览不同的上班时刻</p><button data-scene="working">上班中 <span>16:38</span></button><button data-scene="lunch">午休中 <span>12:30</span></button><button data-scene="after">已下班 <span>18:05</span></button><button data-scene="rest">休息日 <span>周日</span></button><button data-scene="real">使用此刻时间 <span>本机</span></button></div>
+    </div>
+    <button class="top-action" id="researchOpen" aria-label="查看设计依据"><svg><use href="#i-doc"/></svg><span>设计依据</span></button>
+  </div>
+</header>
+
+<main class="desktop" id="desktop">
+  <div class="wallpaper-type" aria-hidden="true"><span>OFF DUTY CLUB</span><p>生活很大，<br>工作只是其中一块。</p><i>给认真生活的你，一点精神补给。</i></div>
+  <div class="wallpaper-orbit" aria-hidden="true"></div>
+  <section class="app-window" id="appWindow" aria-label="牛马不放器主面板">
+    <div class="window-bar"><span class="window-title"><svg><use href="#i-smile"/></svg>牛马不放器</span><span class="local-pill"><span></span>本地陪伴 · 离线可用</span><div class="window-actions"><button id="privacyButton" class="icon-button" aria-label="隐藏金额" title="隐藏金额"><svg><use href="#i-eye"/></svg></button><button id="minimizeButton" class="icon-button" aria-label="收起到桌面挂件" title="收起到桌面挂件"><svg><use href="#i-minus"/></svg></button><button id="closeButton" class="icon-button" aria-label="收起面板" title="收起面板"><svg><use href="#i-close"/></svg></button></div></div>
+    <div class="app-body">
+      <div class="panel-navigation">
+        <nav class="navigation" aria-label="主导航"><button data-page="today" class="nav-item active" aria-current="page"><svg><use href="#i-sun"/></svg><span>今天这班</span></button><button data-page="break" class="nav-item"><svg><use href="#i-coffee"/></svg><span>带薪喘口气</span></button><button data-page="feel" class="nav-item"><svg><use href="#i-heart"/></svg><span>情绪急救站</span></button><button data-page="settings" class="nav-item"><svg><use href="#i-settings"/></svg><span>打工配置</span></button></nav>
+      </div>
+
+      <div class="main-content">
+        <section class="page" id="page-today" aria-labelledby="todayHeading">
+          <div class="page-heading"><div><p class="eyebrow" id="todayDate">11 月 09 日 · 星期一</p><h1 id="todayHeading">班可以上，气不能受<span>。</span></h1></div><span class="status-badge" id="workStatus"><span></span>正在营业</span></div>
+          <div class="daily-grid">
+            <article class="earnings-card"><div class="card-eyebrow"><svg><use href="#i-spark"/></svg><span id="earningLabel">今日已赚 · 估算</span><button class="tiny-button" id="formulaOpen" aria-label="查看计薪规则">i</button></div><div class="earnings-number"><span class="currency">¥</span><span id="earnedWhole">452</span><span class="cents" id="earnedCents">.27</span></div><div class="earning-caption" id="earningCaption">你认真生活的底气，正在 +1</div><div class="earnings-meta"><span>参考时薪 <b id="hourlyValue">¥68.18</b></span><span id="earningRate">每分钟 +¥1.14</span></div><button class="mascot-button" id="mascotButton" aria-label="戳一下小牛马，收获一句安慰"><span class="mascot-whisper" id="mascotWhisper">再摸一下就下班。</span><svg class="mascot"><use href="#i-mascot"/></svg></button></article>
+            <article class="countdown-card"><div class="card-eyebrow"><svg><use href="#i-clock"/></svg><span id="countdownLabel">距离下班还有</span></div><div class="countdown-number" id="countdownValue"><b>01</b><small>时</small><b>22</b><small>分</small></div><p id="countdownCaption">18:00，把时间还给自己。</p><div class="countdown-art" aria-hidden="true"><span class="sun"></span><div class="horizon"></div><svg viewBox="0 0 100 50"><path d="m8 31 28-17 13 11 28-19m-9 0h9v9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div></article>
+          </div>
+          <div class="day-progress"><div><span id="progressTitle">今日打工进度</span><strong id="progressPercent">82.9%</strong></div><div class="progress-track"><span id="progressFill" style="width:82.9%"></span><i id="progressBuddy" style="left:82.9%">↗</i></div><div class="progress-labels"><span id="startLabel">09:00 上班</span><span id="progressMessage">已经走过一大半了</span><span id="endLabel">18:00 下班</span></div></div>
+          <section class="mood-section"><div class="section-heading"><h2>这会儿，感觉怎么样？</h2><span>不用硬撑，选一个就好</span></div><div class="mood-row" id="todayMoodRow"><button data-mood="angry"><svg><use href="#i-angry"/></svg><span>有点烦</span></button><button data-mood="tired"><svg><use href="#i-tired"/></svg><span>累瘫了</span></button><button data-mood="sleep"><svg><use href="#i-sleep"/></svg><span>想摆烂</span></button><button data-mood="good"><svg><use href="#i-smile"/></svg><span>还不错</span></button></div></section>
+          <article class="comfort-card" aria-live="polite"><span class="quote-mark">“</span><div><p id="comfortText">工作只是你的人生支线，别让它抢了主角的戏。</p><span id="comfortFrom">今日精神补给 / 01</span></div><button id="newQuote" class="text-button"><svg><use href="#i-shuffle"/></svg>换一句</button></article>
+          <button class="break-strip" id="quickBreak"><span class="break-strip-icon"><svg><use href="#i-coffee"/></svg></span><span><b>先缓一口气？</b><small>给自己 5 分钟，世界不会因此停转。</small></span><span class="break-strip-link">带薪喘口气 <svg><use href="#i-arrow"/></svg></span></button>
+          <footer class="page-footer"><span><span class="footer-dot"></span>工资在涨，日子也要好好过。</span><button id="collapseLink">收起，低调上班 <svg><use href="#i-arrow"/></svg></button></footer>
+        </section>
+
+        <section class="page" id="page-break" aria-labelledby="breakHeading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">TAKE A LITTLE BREAK</p><h1 id="breakHeading">人又不是永动机<span>。</span></h1></div><span class="neutral-badge">休息也理直气壮</span></div>
+          <p class="page-intro">这几分钟，先不生成任何待办。喝口水，看看远处，或者发会儿呆。</p>
+          <div class="break-feature"><div class="break-illustration"><svg class="mascot"><use href="#i-mascot"/></svg><span>手机充电，你也充电</span></div><div class="break-timer"><span class="eyebrow" id="timerLabel">本次喘气时间</span><div class="timer-value" id="breakTime">00:00</div><p id="breakIncome">这会儿不必有产出，歇着也算数。</p><div class="duration-options" id="durationOptions"><button data-duration="180">3 分钟</button><button data-duration="300" class="selected">5 分钟</button><button data-duration="600">10 分钟</button></div><div class="timer-actions"><button class="primary-button" id="startBreak"><svg><use href="#i-play"/></svg><span>开始喘口气</span></button><button class="secondary-button" id="finishBreak" hidden>结束休息</button></div><span class="timer-tip" id="timerTip">到点轻提示，由你决定什么时候回来。</span></div></div>
+          <div class="rest-suggestions"><button data-rest="water"><svg><use href="#i-coffee"/></svg><b>喝口水</b><span>顺便离开屏幕一下</span></button><button data-rest="shoulder"><svg><use href="#i-sun"/></svg><b>松松肩</b><span>让肩膀离耳朵远一点</span></button><button data-rest="window"><svg><use href="#i-leaf"/></svg><b>看看远处</b><span>云今天也没交周报</span></button></div>
+          <section class="break-summary"><div class="section-heading"><h2>今天留给自己的时间</h2><span class="summary-tools">本地记录 <button id="clearBreaks" class="text-button">清除今日记录</button></span></div><div class="summary-line"><strong id="totalBreakTime">0 分钟</strong><span id="totalBreakCount">还没开始也没关系，随时可以歇会儿。</span></div><div id="breakHistory" class="break-history"></div></section>
+          <footer class="page-footer"><span>“带薪”金额仅统计计薪时段，不在正常收益上额外累加。</span></footer>
+        </section>
+
+        <section class="page" id="page-feel" aria-labelledby="feelHeading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">EMOTIONAL FIRST AID</p><h1 id="feelHeading">先接住情绪，再接需求<span>。</span></h1></div><svg class="heading-heart"><use href="#i-heart"/></svg></div>
+          <p class="page-intro">不需要讲道理，也不用马上振作。这里可以暂时卸下班味。</p>
+          <div class="mood-row large-moods" id="feelMoodRow"><button data-mood="angry"><svg><use href="#i-angry"/></svg><span>有点烦</span><small>今天的需求有点多</small></button><button data-mood="tired"><svg><use href="#i-tired"/></svg><span>累瘫了</span><small>电量已经见底</small></button><button data-mood="sleep"><svg><use href="#i-sleep"/></svg><span>想摆烂</span><small>暂时不想努力了</small></button><button data-mood="good"><svg><use href="#i-smile"/></svg><span>还不错</span><small>今天也有小确幸</small></button></div>
+          <article class="emotional-note"><span class="note-tape"></span><div class="emotional-note-top"><span id="emotionTag">今日份情绪接住了</span><svg><use href="#i-spark"/></svg></div><p id="emotionQuote">你已经处理很多事了，<br>可以先把自己排到第一位。</p><div class="emotional-note-bottom"><span>—— 你的下班搭子</span><button class="text-button" id="feelNewQuote"><svg><use href="#i-shuffle"/></svg>再来一句</button></div></article>
+          <div class="emotion-actions"><button class="primary-button" id="crumpleButton"><svg><use href="#i-doc"/></svg>把烦恼揉成纸团</button><button class="secondary-button" id="goRest">去歇一会儿 <svg><use href="#i-arrow"/></svg></button></div><p class="gentle-footnote">今天状态差，也不影响你是一个很好的人。</p>
+        </section>
+
+        <section class="page" id="page-settings" aria-labelledby="settingsHeading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">MAKE YOURSELF AT HOME</p><h1 id="settingsHeading">你的班，你来定义<span>。</span></h1></div><span class="neutral-badge">仅保存在本机</span></div>
+          <form id="settingsForm" novalidate><div class="settings-group"><h2>算清楚这份辛苦钱 <span>金额只用于本地估算</span></h2><div class="form-grid"><label>税前月薪 / 元<input type="number" name="monthlySalary" min="1" max="10000000" step="100" inputmode="decimal" required><small class="field-error" data-error="monthlySalary"></small></label><label>月计薪天数 / 天<input type="number" name="paidDays" min="1" max="31" step="0.01" inputmode="decimal" required><small class="field-error" data-error="paidDays"></small></label></div></div>
+          <div class="settings-group"><h2>什么时候，把时间还给自己</h2><div class="form-grid"><label>上班时间<input type="time" name="startTime" required><small class="field-error" data-error="startTime"></small></label><label>下班时间<input type="time" name="endTime" required><small class="field-error" data-error="endTime"></small></label></div><div class="switch-row"><label for="lunchEnabled"><b>午休不计薪</b><span>午休期间，今日收益暂停增长</span></label><input class="toggle" type="checkbox" name="lunchEnabled" id="lunchEnabled"></div><div class="form-grid" id="lunchFields"><label>午休开始<input type="time" name="lunchStart"><small class="field-error" data-error="lunchStart"></small></label><label>午休结束<input type="time" name="lunchEnd"><small class="field-error" data-error="lunchEnd"></small></label></div><label class="days-label">每周工作日</label><div class="work-days" id="workDays"></div><small class="field-error" data-error="workDays"></small></div>
+          <div class="settings-privacy"><svg><use href="#i-pin"/></svg><p id="storageDescription">不用登录，也没有数据上传。演示数值与设置仅存在此浏览器；不会读取你的 SalaryClock 配置。</p></div><div class="settings-submit"><button class="primary-button" type="submit" id="saveSettingsButton"><svg><use href="#i-check"/></svg>保存，继续好好生活</button><button class="text-button" type="button" id="resetSettings">恢复演示设置</button><span id="settingsSaved" role="status"></span></div>
+          <section class="native-only native-preferences" aria-labelledby="nativePreferencesHeading"><h2 id="nativePreferencesHeading">桌面陪伴</h2><div class="switch-row"><label for="startWithWindows"><b>随 Windows 启动</b><span>登录电脑后，让小挂件陪你开始这一天</span></label><input class="toggle" type="checkbox" id="startWithWindows" name="startWithWindows"></div><div class="native-data-row"><span>设置与休息记录仅保存在这台电脑。<br>写在烦恼纸上的内容不会保存。</span><button type="button" class="secondary-button" id="openDataFolder">打开本地数据目录</button></div><p class="native-version" id="nativeVersion">牛马不放器 · 离线陪伴</p></section></form>
+        </section>
+      </div>
+    </div>
+  </section>
+  <div class="collapsed-message" id="collapsedMessage" hidden><span class="collapsed-note"><svg><use href="#i-coffee"/></svg>需要缓口气的时候，我都在。</span><button class="text-button" id="reopenButton">展开面板 <svg><use href="#i-arrow"/></svg></button></div>
+  <footer class="desktop-taskbar"><div class="taskbar-left"><button id="taskbarWidget" class="taskbar-widget" aria-label="收起牛马不放器" aria-expanded="true" aria-controls="appWindow"><svg><use href="#i-clock"/></svg><span><b id="widgetAmount">¥452.27</b><small id="widgetSubtitle">今日已赚 · 1时22分下班</small></span><span class="widget-indicator"></span></button></div><div class="taskbar-middle" aria-hidden="true"><span class="windows-mark"><i></i><i></i><i></i><i></i></span><span class="search-mark"></span><span class="folder-mark"></span><span class="taskbar-app-icon"><svg><use href="#i-smile"/></svg></span></div><div class="taskbar-right"><span class="prototype-taskbar-label">Windows 桌面场景预览</span><span id="systemClock">16:38<br><small>2026/11/09</small></span></div></footer>
+</main>
+<div class="toast" id="toast" role="status" hidden><svg><use href="#i-check"/></svg><span></span></div>
+<dialog id="infoDialog"><div class="dialog-top"><span class="eyebrow" id="dialogEyebrow">ABOUT THE PROTOTYPE</span><button class="icon-button" id="dialogClose" aria-label="关闭弹窗"><svg><use href="#i-close"/></svg></button></div><div id="dialogContent"></div></dialog>
+<dialog class="paper-overlay" id="paperOverlay" data-stage="write" data-squeeze="0" hidden aria-labelledby="paperTitle" aria-describedby="paperSubtitle">
+  <header class="paper-toolbar"><span><svg><use href="#i-leaf"/></svg>烦恼回收站</span><button id="paperClose" class="icon-button" aria-label="离开烦恼回收站"><svg><use href="#i-close"/></svg></button></header>
+  <div class="paper-flow-content">
+    <div class="paper-step-line"><span id="paperStep">01 / 放到纸上</span><span id="paperCount">这会儿，先照顾自己</span></div>
+    <h2 id="paperTitle">把这会儿的烦，放到纸上。</h2>
+    <p id="paperSubtitle">几个字就好。不想写，也可以直接揉。</p>
+
+    <section id="paperWrite" class="paper-write" aria-label="写下烦恼">
+      <div class="thought-paper"><span class="paper-date">今日份 · 碎碎念</span><label class="sr-only" for="paperThought">写下你想丢掉的烦恼</label><textarea id="paperThought" maxlength="120" placeholder="比如：这个需求怎么又改了……" spellcheck="false"></textarea><div class="thought-paper-bottom"><svg><use href="#i-doc"/></svg><span>写不清楚也没关系</span><span id="paperChars">0 / 120</span></div></div>
+      <div class="paper-prompt-label">或者，替你先吐槽一句</div>
+      <div class="paper-prompts"><button data-paper-prompt="需求又双叒改了。">需求又双叒改了</button><button data-paper-prompt="这个会又开成连续剧了。">会又开成连续剧了</button><button data-paper-prompt="临下班，又来一句「在吗」。">临下班又来一句在吗</button></div>
+      <button id="paperStart" class="primary-button paper-start"><svg><use href="#i-doc"/></svg>开始揉纸 <svg><use href="#i-arrow"/></svg></button>
+      <p class="paper-privacy"><svg><use href="#i-pin"/></svg>这张纸不会保存，也不会发出去。</p>
+    </section>
+
+    <section id="paperPlay" class="paper-play" aria-label="揉纸和投进纸篓" hidden>
+      <div id="paperSqueezeMeter" class="paper-squeeze-meter" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div id="paperStageArena" class="paper-arena">
+        <div id="paperFlightPath" class="paper-flight-path" aria-hidden="true"><svg viewBox="0 0 120 130"><path d="M23 8C102 20 109 64 70 108"/><path d="m61 100 9 8 11-8"/></svg></div>
+        <button id="paperToy" class="paper-toy" aria-label="再揉一下纸张"><span class="paper-mini-sheet" aria-hidden="true"><svg viewBox="0 0 160 175"><path d="M12 9 139 3 154 145 130 169 7 158Z" fill="#fffdf4"/><path d="m12 9 65 41 62-47M77 50l-6 67 83 28M71 117l-64 41m64-41 59 52" fill="none" stroke="#cbc5b3" stroke-width="1.3"/><path d="M12 9 77 50 7 158Z" fill="#ded9c9" opacity=".4"/><path d="m77 50 62-47 15 142Z" fill="#efeada" opacity=".7"/></svg><span id="paperPreview">今天的烦心事</span></span><img class="paper-ball-image" src="assets/crumpled-paper.svg" alt="揉皱的纸团" draggable="false"><span class="paper-toy-shadow" aria-hidden="true"></span></button>
+        <div id="paperBin" class="paper-bin" role="img" aria-label="把纸团拖到这个纸篓"><span class="paper-bin-glow" aria-hidden="true"></span><svg viewBox="0 0 120 115" aria-hidden="true"><defs><pattern id="basketMesh" width="12" height="12" patternUnits="userSpaceOnUse"><path d="m0 0 12 12m0-12L0 12" fill="none" stroke="#a4b09a" stroke-width=".75"/></pattern></defs><ellipse cx="60" cy="103" rx="35" ry="5" fill="#d5ddc8" opacity=".5"/><path d="m24 24 9 70q27 12 54 0l9-70Z" fill="#e7eddf"/><path d="m24 24 9 70q27 12 54 0l9-70Z" fill="url(#basketMesh)" stroke="#9daa90" stroke-width="1.6"/><path d="M34 91q26 9 52 0" fill="none" stroke="#91a180" stroke-width="1.4"/><ellipse cx="60" cy="24" rx="36" ry="11" fill="#dbe3d1" stroke="#91a180" stroke-width="2"/><ellipse cx="60" cy="24" rx="30" ry="7" fill="#c6d2b9"/><path d="M33 20q27-10 54 0" fill="none" stroke="#f2f5eb" stroke-width="2"/></svg><span class="paper-bin-caption">今天的烦，先丢这里</span></div>
+      </div>
+      <div class="paper-play-feedback"><p id="paperHint" role="status" aria-live="polite">再揉两下，把这一小团松开。</p><button id="paperThrow" class="primary-button" hidden><svg><use href="#i-arrow"/></svg>帮我丢进去</button><span class="paper-keyboard-tip">点按就能揉，不用使劲。</span></div>
+    </section>
+
+    <section id="paperResult" class="paper-result" aria-label="纸团已丢入纸篓" hidden>
+      <div class="paper-result-art" aria-hidden="true"><span class="paper-result-orbit"></span><svg><use href="#i-mascot"/></svg><span class="paper-result-check"><svg><use href="#i-check"/></svg></span></div>
+      <span id="paperResultTag" class="paper-result-tag">这张纸，回收成功</span>
+      <h3 id="paperResultTitle">这一张，先放下了。</h3>
+      <p id="paperResultCopy">事情可以慢慢处理，你先不用一直攥着它。</p>
+      <div class="paper-result-actions"><button id="paperAgain" class="secondary-button"><svg><use href="#i-doc"/></svg>还有一张要丢</button><button id="paperRest" class="primary-button"><svg><use href="#i-coffee"/></svg>开始 5 分钟休息</button></div>
+      <button id="paperDone" class="text-button">回去，慢慢来 <svg><use href="#i-arrow"/></svg></button>
+    </section>
+  </div>
+</dialog>
+</body>
+</html>

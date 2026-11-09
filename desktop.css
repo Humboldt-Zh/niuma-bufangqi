@@ -1,0 +1,39 @@
+/* Native WPF owns the window, position, widget and tray. This document fills it. */
+:root.desktop-host { --panel-edge: 0px; --prototype-height: 0px; --taskbar-height: 0px; --panel-gap: 0px; --panel-width: 100vw; --panel-height: 100dvh; }
+.native-only { display: none; }
+body.desktop-host { width: 100vw; height: 100dvh; overflow: hidden; background: var(--paper); }
+.desktop-host .native-only { display: block; }
+.desktop-host .prototype-bar,
+.desktop-host .wallpaper-type,
+.desktop-host .wallpaper-orbit,
+.desktop-host .desktop-taskbar,
+.desktop-host .collapsed-message { display: none !important; }
+.desktop-host .desktop { position: relative; height: 100dvh; width: 100%; min-height: 0; padding: 0; background: var(--paper); }
+.desktop-host .app-window { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; max-width: none; margin: 0; border: 0; border-radius: 0; box-shadow: none; animation: none; transform: none; }
+.desktop-host .window-bar { height: 42px; background: #f8faf1; }
+.desktop-host .app-body { height: calc(100% - 42px); }
+.desktop-host .window-title { font-size: 12px; font-weight: 600; }
+.desktop-host .main-content { min-height: 0; }
+.desktop-host #infoDialog,
+.desktop-host .paper-overlay { position: fixed; inset: 0; margin: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; border-radius: 0; }
+.desktop-host #infoDialog { padding: 26px; overflow-y: auto; }
+.desktop-host .paper-overlay { padding: 0; }
+.desktop-host .toast { left: 14px; bottom: 16px; width: auto; max-width: calc(100% - 28px); }
+.desktop-host .settings-submit { padding-bottom: 19px; }
+.desktop-host .native-preferences { border-top: 1px solid var(--line); padding-top: 18px; }
+.desktop-host .native-preferences h2 { font-size: 12px; font-weight: 600; margin: 0; }
+.desktop-host .native-preferences .switch-row { padding-top: 14px; }
+.desktop-host .native-data-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 1px 0 17px; }
+.desktop-host .native-data-row > span { color: #9aa68b; font-size: 9px; line-height: 1.8; }
+.desktop-host .native-data-row button { font-size: 10px; white-space: nowrap; padding: 8px 11px; }
+.desktop-host .native-version { color: #a5af97; font-size: 9px; line-height: 1.8; padding-bottom: 4px; }
+.desktop-host .unconfigured .earnings-number { font-size: 35px; }
+.desktop-host .unconfigured .currency { display: none; }
+.desktop-host .unconfigured .countdown-number b { font-size: 20px !important; }
+@media (max-width: 600px) {
+  .desktop-host .window-bar { height: 39px; }
+  .desktop-host .app-body { height: calc(100% - 39px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-host .app-window { animation: none; }
+}

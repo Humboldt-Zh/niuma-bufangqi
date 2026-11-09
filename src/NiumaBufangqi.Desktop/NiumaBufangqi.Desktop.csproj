@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>NiumaBufangqi</AssemblyName>
+    <RootNamespace>NiumaBufangqi.Desktop</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>NiumaBufangqi.Desktop.Program</StartupObject>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>../../assets/app-icon.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NiumaBufangqi.Core/NiumaBufangqi.Core.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <Resource Include="../../assets/app-icon.ico" Link="Assets/app-icon.ico" />
+    <Content Include="../../index.html;../../styles.css;../../panel-layout.css;../../paper-play.css;../../desktop.css;../../model.js;../../desktop-bridge.js;../../app.js;../../paper-play.js"
+             Link="WebAssets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../assets/crumpled-paper.svg" Link="WebAssets/assets/crumpled-paper.svg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

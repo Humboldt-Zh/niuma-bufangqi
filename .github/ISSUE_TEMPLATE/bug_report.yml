@@ -1,0 +1,22 @@
+name: 问题反馈
+description: 提供可复现的行为问题
+body:
+  - type: input
+    id: version
+    attributes:
+      label: 软件版本和 Windows 版本
+      placeholder: 0.1.0 / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤、预期和实际结果
+      description: 请使用虚构薪资；上传截图前隐藏个人信息，不要粘贴 state.json。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 显示环境
+      description: 屏幕数量、缩放比例，以及问题是否发生在睡眠或切换显示器之后。
