@@ -4,7 +4,7 @@
 
 牛马不放器是面向 Windows 的本地桌面工具。收益和状态信息显示在任务栏内的一个入口中：点击打开新版面板，再点击同一入口收起。面板自身不增加普通任务栏按钮；系统托盘保留恢复与退出入口。界面使用 HTML/CSS/JavaScript，宿主使用 .NET 10、WPF、WinForms 和 WebView2。
 
-当前为 **0.1.4 开发预览版**。本版改为任务栏内入口，不再创建工作区底部的绿色悬浮卡片。新的任务栏模式仍待人工验收，具体构建与实测结果以 [验证记录](docs/verification.md) 为准。仓库保留独立的浏览器交互演示。
+当前为 **0.1.4 开发预发布版**，已提供 [Windows x64 下载](https://github.com/Humboldt-Zh/niuma-bufangqi/releases/tag/v0.1.4)。本版使用任务栏内入口，已完成本机 Edge、其他窗口和 Windows 开始菜单切换的闪隐问题验收；多屏、不同 DPI 等兼容性仍需继续验证，具体结果见 [验证记录](docs/verification.md)。仓库保留独立的浏览器交互演示。
 
 [GitHub 仓库](https://github.com/Humboldt-Zh/niuma-bufangqi) · [构建与测试](https://github.com/Humboldt-Zh/niuma-bufangqi/actions) · [发布页](https://github.com/Humboldt-Zh/niuma-bufangqi/releases)
 
@@ -26,13 +26,13 @@
 
 首版面向 Windows 11 x64。需要 **Microsoft Edge WebView2 Evergreen Runtime**；程序会检测缺失情况并引导到 [Microsoft 官方下载页](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)。Windows 11 通常已包含该运行时，仍需以本机检测结果为准。
 
-解压明确标记为 0.1.4 的 win-x64 ZIP，在固定目录运行其中的 `NiumaBufangqi.exe`。发布目录包含自带的 .NET 运行时，无需另外安装 .NET；WebView2 Runtime 是单独的前置依赖。
+从 [v0.1.4 发布页](https://github.com/Humboldt-Zh/niuma-bufangqi/releases/tag/v0.1.4) 下载 win-x64 ZIP 和同名 `.sha256` 校验文件。完整解压后，在固定目录运行其中的 `NiumaBufangqi.exe`。发布目录包含自带的 .NET 运行时，无需另外安装 .NET；WebView2 Runtime 是单独的前置依赖。
 
 升级前请从退出菜单彻底结束旧薪资时钟和 0.1.0 绿色浮窗版。0.1.4 检测到旧 `SalaryClock` 进程，或同一配置正在被其他目录中的牛马不放器使用时，会提示先退出旧版本，不叠加新入口，也不激活另一目录中的旧界面。它不会自动结束其他程序、替换旧入口或接管启动项；已经运行的两个旧版本仍需用户各自退出。已有 `%LOCALAPPDATA%\NiumaBufangqi\state.json` 中的设置继续使用，无需重填。完整步骤见 [手动升级与验收](docs/manual-upgrade.md)。
 
 再次点击任务栏入口、面板关闭按钮或普通页面的 `Esc` 都可收起面板。要彻底结束程序，使用任务栏入口右键菜单或系统托盘中的“退出”。开机启动开关反映当前 EXE 的实际启动项；换到新目录后未勾选属于正常情况，是否开启由用户决定。开启后只写当前 Windows 用户的启动项，无需管理员权限。升级后的快捷方式和自启动目标由用户主动确认；移动程序前先关闭旧启动项。
 
-本地预览产物尚未进行代码签名。SHA-256 校验文件用于核对发布文件完整性，不替代发布者身份验证。
+开发预发布包尚未进行代码签名。SHA-256 校验文件用于核对发布文件完整性，不替代发布者身份验证。
 
 ## 从源码构建
 
@@ -65,7 +65,7 @@ Core 与任务栏几何测试是无第三方测试包的控制台程序，失败
 
 产物写入 `artifacts/`，包含可运行目录、ZIP 和 SHA-256 校验文件，具体文件名以脚本输出为准。发布时必须保留许可证、第三方声明和运行依赖。
 
-普通构建和 x64 发布分别锁定依赖，版本以 `Directory.Build.props` 为准并核对 `package.json`。草稿发布工作流要求版本标签已指向本次提交。首版原生人工验收尚未全部完成，发布草稿供维护者验收后公开。
+普通构建和 x64 发布分别锁定依赖，版本以 `Directory.Build.props` 为准并核对 `package.json`。草稿发布工作流要求版本标签已指向本次提交，供维护者验收后公开。0.1.4 已完成本次闪隐问题验收，并以开发预发布形式公开；其余兼容性验收范围见验证记录。
 
 ## 浏览器交互演示
 
