@@ -10,6 +10,8 @@ public sealed record AppState
     public bool Privacy { get; init; }
     public bool StartWithWindows { get; init; }
     public bool WidgetVisible { get; init; } = true;
+    // Independent of the removed 0.1.0 floating-card preference.
+    public bool TaskbarEntryVisible { get; init; } = true;
     public List<BreakRecord> BreakSessions { get; init; } = [];
 }
 

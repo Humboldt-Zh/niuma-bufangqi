@@ -1,9 +1,124 @@
+using System.Drawing;
 using System.Text.Json;
 using NiumaBufangqi.Core;
 
 var defaults = new SalarySettings();
 var tests = new (string Name, Action Run)[]
 {
+    ("A hidden old floating card does not disable the new taskbar entry", () =>
+    {
+        var oldProfile = JsonSerializer.Deserialize<AppState>("{\"schemaVersion\":1,\"widgetVisible\":false}", new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        Equal(false, oldProfile.WidgetVisible);
+        Equal(true, oldProfile.TaskbarEntryVisible);
+        var explicitlyHidden = JsonSerializer.Deserialize<AppState>("{\"schemaVersion\":1,\"taskbarEntryVisible\":false}", new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        Equal(false, explicitlyHidden.TaskbarEntryVisible);
+    }),
+    ("Panel opens directly above the bottom taskbar entry with no floating-card reservation", () =>
+    {
+        var workArea = new Rectangle(0, 0, 1920, 1040);
+        var entry = new Rectangle(250, 1040, 200, 40);
+        var panel = PanelPlacement.Calculate(workArea, entry, 1);
+        Equal(new Rectangle(250, 272, 560, 760), panel);
+        Equal(8, entry.Top - panel.Bottom);
+        AssertInside(workArea, panel);
+    }),
+    ("Panel clamps the right edge on negative and offset monitor coordinates", () =>
+    {
+        var leftMonitor = new Rectangle(-1920, 0, 1920, 1040);
+        var leftPanel = PanelPlacement.Calculate(leftMonitor, new Rectangle(-80, 1040, 70, 40), 1);
+        Equal(-568, leftPanel.Left); Equal(-8, leftPanel.Right);
+        AssertInside(leftMonitor, leftPanel);
+        var rightMonitor = new Rectangle(1920, -200, 1280, 1000);
+        var rightPanel = PanelPlacement.Calculate(rightMonitor, new Rectangle(3180, 800, 20, 40), 1);
+        Equal(new Rectangle(2632, 32, 560, 760), rightPanel);
+        AssertInside(rightMonitor, rightPanel);
+    }),
+    ("High-DPI and very short working areas shrink the panel without crossing screen bounds", () =>
+    {
+        var workArea = new Rectangle(0, 0, 1280, 720);
+        var panel = PanelPlacement.Calculate(workArea, new Rectangle(16, 720, 280, 60), 2);
+        Equal(new Rectangle(16, 16, 1120, 688), panel);
+        Equal(16, workArea.Bottom - panel.Bottom);
+        AssertInside(workArea, panel);
+        var tinyArea = new Rectangle(-2, -1, 2, 1);
+        var tinyPanel = PanelPlacement.Calculate(tinyArea, null, 2);
+        Equal(tinyArea, tinyPanel);
+        AssertInside(tinyArea, tinyPanel);
+    }),
+    ("Tray fallback and top taskbars stay in the working area and reject invalid geometry", () =>
+    {
+        var workArea = new Rectangle(100, 50, 1000, 900);
+        var fromTray = PanelPlacement.Calculate(workArea, null, 1);
+        Equal(new Rectangle(108, 182, 560, 760), fromTray);
+        Equal(8, workArea.Bottom - fromTray.Bottom);
+        AssertInside(workArea, fromTray);
+        var belowTopTaskbar = new Rectangle(0, 40, 1920, 1040);
+        var topEntry = new Rectangle(250, 0, 200, 40);
+        var belowEntry = PanelPlacement.Calculate(belowTopTaskbar, topEntry, 1);
+        Equal(8, belowEntry.Top - topEntry.Bottom);
+        AssertInside(belowTopTaskbar, belowEntry);
+        foreach (var invalidScale in new[] { 0d, -1d, double.NaN, double.PositiveInfinity, double.NegativeInfinity })
+            Throws<ArgumentOutOfRangeException>(() => PanelPlacement.Calculate(workArea, null, invalidScale));
+        Throws<ArgumentOutOfRangeException>(() => PanelPlacement.Calculate(new Rectangle(0, 0, 0, 100), null, 1));
+        Throws<ArgumentOutOfRangeException>(() => PanelPlacement.Calculate(new Rectangle(0, 0, 100, -1), null, 1));
+        Throws<ArgumentOutOfRangeException>(() => PanelPlacement.Calculate(new Rectangle(int.MaxValue - 5, 0, 100, 100), null, 1));
+    }),
+    ("Taskbar entry clicks alternate visibility despite focus moving over the entry", () =>
+    {
+        var states = PanelSequence(false, true,
+            (PanelInteraction.EntryClick, false),
+            (PanelInteraction.LostFocus, true),
+            (PanelInteraction.EntryClick, true),
+            (PanelInteraction.LostFocus, true),
+            (PanelInteraction.EntryClick, true));
+        Assert(states.SequenceEqual([true, true, false, false, true]),
+            "The second entry click must close the panel instead of reopening it after premature dismissal.");
+    }),
+    ("Outside focus loss dismisses once and the next taskbar click reopens", () =>
+    {
+        var states = PanelSequence(false, true,
+            (PanelInteraction.EntryClick, true),
+            (PanelInteraction.LostFocus, false),
+            (PanelInteraction.LostFocus, false),
+            (PanelInteraction.EntryClick, true));
+        Assert(states.SequenceEqual([true, false, false, true]),
+            "An outside click should hide the panel without consuming the next entry click.");
+    }),
+    ("First configuration survives focus loss but an explicit close still wins", () =>
+    {
+        var states = PanelSequence(false, false,
+            (PanelInteraction.OpenRequested, false),
+            (PanelInteraction.LostFocus, false),
+            (PanelInteraction.CloseRequested, false),
+            (PanelInteraction.LostFocus, false),
+            (PanelInteraction.EntryClick, true));
+        Assert(states.SequenceEqual([true, true, false, false, true]),
+            "First-run setup should not vanish during initialization, while the user can explicitly close it.");
+    }),
+    ("Tray open requests are idempotent and do not toggle an already open panel", () =>
+    {
+        var states = PanelSequence(false, true,
+            (PanelInteraction.OpenRequested, false),
+            (PanelInteraction.OpenRequested, false),
+            (PanelInteraction.CloseRequested, false),
+            (PanelInteraction.CloseRequested, false),
+            (PanelInteraction.OpenRequested, false));
+        Assert(states.SequenceEqual([true, true, false, false, true]),
+            "Open and close requests must be explicit intents rather than additional taskbar toggles.");
+    }),
+    ("Entry dismissal is stable for either native click and focus event ordering", () =>
+    {
+        var focusFirst = PanelSequence(true, true,
+            (PanelInteraction.LostFocus, true),
+            (PanelInteraction.EntryClick, true),
+            (PanelInteraction.LostFocus, false));
+        var clickFirst = PanelSequence(true, true,
+            (PanelInteraction.EntryClick, true),
+            (PanelInteraction.LostFocus, true),
+            (PanelInteraction.LostFocus, false));
+        Assert(!focusFirst[^1] && !clickFirst[^1], "A second click must leave the panel closed in either native event ordering.");
+        Equal(true, PanelVisibilityPolicy.GetNextVisibility(false, PanelInteraction.EntryClick, configured: true));
+    }),
     ("First launch is explicitly unconfigured", () => Equal<SalarySettings?>(null, new AppState().Settings)),
     ("Default schedule and fractional paid days are valid", () =>
     {
@@ -211,6 +326,20 @@ Console.WriteLine($"{tests.Length - failures}/{tests.Length} tests passed.");
 return failures == 0 ? 0 : 1;
 
 SalarySnapshot At(int hour, int minute) => SalaryCalculator.Calculate(defaults, new DateTime(2026, 11, 9, hour, minute, 0));
+static bool[] PanelSequence(bool initiallyVisible, bool configured, params (PanelInteraction Event, bool PointerOverEntry)[] interactions)
+{
+    var visible = initiallyVisible;
+    return interactions.Select(interaction =>
+    {
+        visible = PanelVisibilityPolicy.GetNextVisibility(visible, interaction.Event, configured, interaction.PointerOverEntry);
+        return visible;
+    }).ToArray();
+}
+static void AssertInside(Rectangle workingArea, Rectangle panel)
+{
+    Assert(panel.Width > 0 && panel.Height > 0, "A panel must retain at least one visible pixel on each axis.");
+    Assert(workingArea.Contains(panel), "The full panel must remain inside the selected monitor's working area.");
+}
 void Invalid(SalarySettings settings, string field) => Assert(SalaryCalculator.Validate(settings).ContainsKey(field), $"Expected validation error for {field}.");
 static void Assert(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
 static void Equal<T>(T expected, T actual) { if (!EqualityComparer<T>.Default.Equals(expected, actual)) throw new InvalidOperationException($"Expected {expected}, got {actual}."); }

@@ -1,6 +1,6 @@
 {
   "name": "niuma-bufangqi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "牛马不放器 — a local Windows comfort widget with an offline interactive panel",
   "scripts": {

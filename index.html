@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#efeee7">
   <meta name="description" content="牛马不放器：给打工人的一点精神补给。离线运行的 Windows 桌面安慰小工具。">
   <title>牛马不放器 · 今天这班</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="panel-layout.css">
-  <link rel="stylesheet" href="paper-play.css">
-  <link rel="stylesheet" href="desktop.css">
-  <script src="model.js" defer></script>
-  <script src="desktop-bridge.js" defer></script>
-  <script src="app.js" defer></script>
-  <script src="paper-play.js" defer></script>
+  <link rel="stylesheet" href="styles.css?v=0.1.1">
+  <link rel="stylesheet" href="panel-layout.css?v=0.1.1">
+  <link rel="stylesheet" href="paper-play.css?v=0.1.1">
+  <link rel="stylesheet" href="desktop.css?v=0.1.1">
+  <script src="model.js?v=0.1.1" defer></script>
+  <script src="desktop-bridge.js?v=0.1.1" defer></script>
+  <script src="app.js?v=0.1.1" defer></script>
+  <script src="paper-play.js?v=0.1.1" defer></script>
 </head>
 <body class="panel-open">
 <svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -66,7 +66,7 @@
   <div class="wallpaper-type" aria-hidden="true"><span>OFF DUTY CLUB</span><p>生活很大，<br>工作只是其中一块。</p><i>给认真生活的你，一点精神补给。</i></div>
   <div class="wallpaper-orbit" aria-hidden="true"></div>
   <section class="app-window" id="appWindow" aria-label="牛马不放器主面板">
-    <div class="window-bar"><span class="window-title"><svg><use href="#i-smile"/></svg>牛马不放器</span><span class="local-pill"><span></span>本地陪伴 · 离线可用</span><div class="window-actions"><button id="privacyButton" class="icon-button" aria-label="隐藏金额" title="隐藏金额"><svg><use href="#i-eye"/></svg></button><button id="minimizeButton" class="icon-button" aria-label="收起到桌面挂件" title="收起到桌面挂件"><svg><use href="#i-minus"/></svg></button><button id="closeButton" class="icon-button" aria-label="收起面板" title="收起面板"><svg><use href="#i-close"/></svg></button></div></div>
+    <div class="window-bar"><span class="window-title"><svg><use href="#i-smile"/></svg>牛马不放器</span><span class="local-pill"><span></span>本地陪伴 · 离线可用</span><div class="window-actions"><button id="privacyButton" class="icon-button" aria-label="隐藏金额" title="隐藏金额"><svg><use href="#i-eye"/></svg></button><button id="minimizeButton" class="icon-button" aria-label="收起到任务栏入口" title="收起到任务栏入口"><svg><use href="#i-minus"/></svg></button><button id="closeButton" class="icon-button" aria-label="收起面板" title="收起面板"><svg><use href="#i-close"/></svg></button></div></div>
     <div class="app-body">
       <div class="panel-navigation">
         <nav class="navigation" aria-label="主导航"><button data-page="today" class="nav-item active" aria-current="page"><svg><use href="#i-sun"/></svg><span>今天这班</span></button><button data-page="break" class="nav-item"><svg><use href="#i-coffee"/></svg><span>带薪喘口气</span></button><button data-page="feel" class="nav-item"><svg><use href="#i-heart"/></svg><span>情绪急救站</span></button><button data-page="settings" class="nav-item"><svg><use href="#i-settings"/></svg><span>打工配置</span></button></nav>
@@ -108,7 +108,7 @@
           <form id="settingsForm" novalidate><div class="settings-group"><h2>算清楚这份辛苦钱 <span>金额只用于本地估算</span></h2><div class="form-grid"><label>税前月薪 / 元<input type="number" name="monthlySalary" min="1" max="10000000" step="100" inputmode="decimal" required><small class="field-error" data-error="monthlySalary"></small></label><label>月计薪天数 / 天<input type="number" name="paidDays" min="1" max="31" step="0.01" inputmode="decimal" required><small class="field-error" data-error="paidDays"></small></label></div></div>
           <div class="settings-group"><h2>什么时候，把时间还给自己</h2><div class="form-grid"><label>上班时间<input type="time" name="startTime" required><small class="field-error" data-error="startTime"></small></label><label>下班时间<input type="time" name="endTime" required><small class="field-error" data-error="endTime"></small></label></div><div class="switch-row"><label for="lunchEnabled"><b>午休不计薪</b><span>午休期间，今日收益暂停增长</span></label><input class="toggle" type="checkbox" name="lunchEnabled" id="lunchEnabled"></div><div class="form-grid" id="lunchFields"><label>午休开始<input type="time" name="lunchStart"><small class="field-error" data-error="lunchStart"></small></label><label>午休结束<input type="time" name="lunchEnd"><small class="field-error" data-error="lunchEnd"></small></label></div><label class="days-label">每周工作日</label><div class="work-days" id="workDays"></div><small class="field-error" data-error="workDays"></small></div>
           <div class="settings-privacy"><svg><use href="#i-pin"/></svg><p id="storageDescription">不用登录，也没有数据上传。演示数值与设置仅存在此浏览器；不会读取你的 SalaryClock 配置。</p></div><div class="settings-submit"><button class="primary-button" type="submit" id="saveSettingsButton"><svg><use href="#i-check"/></svg>保存，继续好好生活</button><button class="text-button" type="button" id="resetSettings">恢复演示设置</button><span id="settingsSaved" role="status"></span></div>
-          <section class="native-only native-preferences" aria-labelledby="nativePreferencesHeading"><h2 id="nativePreferencesHeading">桌面陪伴</h2><div class="switch-row"><label for="startWithWindows"><b>随 Windows 启动</b><span>登录电脑后，让小挂件陪你开始这一天</span></label><input class="toggle" type="checkbox" id="startWithWindows" name="startWithWindows"></div><div class="native-data-row"><span>设置与休息记录仅保存在这台电脑。<br>写在烦恼纸上的内容不会保存。</span><button type="button" class="secondary-button" id="openDataFolder">打开本地数据目录</button></div><p class="native-version" id="nativeVersion">牛马不放器 · 离线陪伴</p></section></form>
+          <section class="native-only native-preferences" aria-labelledby="nativePreferencesHeading"><h2 id="nativePreferencesHeading">桌面陪伴</h2><div class="switch-row"><label for="startWithWindows"><b>随 Windows 启动</b><span>登录电脑后，在任务栏里陪你开始这一天</span></label><input class="toggle" type="checkbox" id="startWithWindows" name="startWithWindows"></div><div class="native-data-row"><span>设置与休息记录仅保存在这台电脑。<br>写在烦恼纸上的内容不会保存。</span><button type="button" class="secondary-button" id="openDataFolder">打开本地数据目录</button></div><p class="native-version" id="nativeVersion">牛马不放器 · 离线陪伴</p></section></form>
         </section>
       </div>
     </div>

@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using NiumaBufangqi.Core;
 using Forms = System.Windows.Forms;
 
 namespace NiumaBufangqi.Desktop;
@@ -11,26 +12,10 @@ internal static class NativePositioning
     private static readonly IntPtr Topmost = new(-1);
     private const uint NoActivate = 0x0010;
 
-    public static void PlaceWidget(Window window, Forms.Screen screen)
+    public static void PlacePanel(Window panel, Forms.Screen screen, System.Drawing.Rectangle? entryBounds)
     {
-        var area = screen.WorkingArea;
-        var scale = ScaleFor(screen);
-        var width = Math.Min((int)Math.Round(224 * scale), area.Width - 16);
-        var height = (int)Math.Round(51 * scale);
-        var margin = (int)Math.Round(8 * scale);
-        Place(window, area.Left + margin, area.Bottom - height - margin, width, height);
-    }
-
-    public static void PlacePanel(Window panel, Forms.Screen screen)
-    {
-        var area = screen.WorkingArea;
-        var scale = ScaleFor(screen);
-        var margin = (int)Math.Round(8 * scale);
-        var width = Math.Min((int)Math.Round(560 * scale), Math.Max(280, area.Width - margin * 2));
-        var widgetHeight = (int)Math.Round(51 * scale);
-        var available = area.Height - widgetHeight - margin * 3;
-        var height = Math.Min((int)Math.Round(760 * scale), Math.Max(200, available));
-        Place(panel, area.Left + margin, area.Bottom - widgetHeight - margin * 2 - height, width, height);
+        var placement = PanelPlacement.Calculate(screen.WorkingArea, entryBounds, ScaleFor(screen));
+        Place(panel, placement.Left, placement.Top, placement.Width, placement.Height);
     }
 
     public static void Place(Window window, int x, int y, int width, int height)

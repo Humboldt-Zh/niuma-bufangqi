@@ -12,6 +12,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using NiumaBufangqi.Core;
+using NiumaBufangqi.Desktop.Taskbar;
 using Forms = System.Windows.Forms;
 
 namespace NiumaBufangqi.Desktop;
@@ -30,7 +31,7 @@ public partial class App : Application
     private Forms.NotifyIcon tray = null!;
     private Forms.ContextMenuStrip menu = null!;
     private PanelWindow panel = null!;
-    private WidgetWindow widget = null!;
+    private TaskbarEntry entry = null!;
     private Forms.Screen screen = null!;
     private EventHandler? displayChanged;
     private Forms.ToolStripMenuItem privacyItem = null!;
@@ -56,18 +57,32 @@ public partial class App : Application
             var eventName = @"Local\NiumaBufangqi.Activate." + mutexSuffix;
             if (!created)
             {
-                try { using var existing = EventWaitHandle.OpenExisting(eventName); existing.Set(); } catch (WaitHandleCannotBeOpenedException) { }
+                if (HasDifferentExecutableRunning())
+                    MessageBox.Show("另一个版本的牛马不放器仍在运行。请右键当前挂件或托盘中的图标选择“退出”，再打开此版本。当前不会新增第二个入口。", "牛马不放器 · 请先退出旧版本", MessageBoxButton.OK, MessageBoxImage.Information);
+                else
+                    try { using var existing = EventWaitHandle.OpenExisting(eventName); existing.Set(); } catch (WaitHandleCannotBeOpenedException) { }
+                Shutdown(); return;
+            }
+            if (HasLegacySalaryClockRunning())
+            {
+                MessageBox.Show("旧版 SalaryClock 仍在运行。请先右键任务栏中的旧薪资入口，选择“退出”，再启动牛马不放器。当前不会再生成第二个入口。", "牛马不放器 · 请先退出旧工具", MessageBoxButton.OK, MessageBoxImage.Information);
                 Shutdown(); return;
             }
             activation = new EventWaitHandle(false, EventResetMode.AutoReset, eventName);
             store = new LocalStateStore(DataDirectory);
             State = store.Load();
+            State = State with { StartWithWindows = IsCurrentStartupConfigured() };
             panel = new PanelWindow(this);
-            widget = new WidgetWindow(TogglePanel, ShowMenu);
+            entry = new TaskbarEntry(TogglePanel, ShowMenu);
+            entry.AttachmentChanged += (_, _) =>
+            {
+                if (!Exiting && !Dispatcher.HasShutdownStarted)
+                    Dispatcher.BeginInvoke(() => { if (panel.IsVisible) Reposition(); });
+            };
             MainWindow = panel;
             screen = Forms.Screen.PrimaryScreen ?? Forms.Screen.AllScreens[0];
             CreateTray();
-            if (State.WidgetVisible) widget.Show();
+            entry.Start();
             Reposition();
             clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Tick(), Dispatcher);
             Tick();
@@ -83,7 +98,8 @@ public partial class App : Application
                 Log("ui-dispatch", eventArgs.Exception); eventArgs.Handled = true;
                 panel.SendError("这次操作没有完成，已保存的配置仍在本机。请重试。");
             };
-            ShowPanel(State.Settings is null || args.Args.Contains("--settings", StringComparer.OrdinalIgnoreCase) ? "settings" : "today");
+            if (State.Settings is null || args.Args.Contains("--settings", StringComparer.OrdinalIgnoreCase)) ShowPanel("settings");
+            else if (args.Args.Contains("--open", StringComparer.OrdinalIgnoreCase)) ShowPanel("today");
             if (!string.IsNullOrEmpty(store.LastWarning)) tray.ShowBalloonTip(6000, "牛马不放器", store.LastWarning, Forms.ToolTipIcon.Info);
         }
         catch (UnsupportedStateVersionException exception)
@@ -97,6 +113,40 @@ public partial class App : Application
             MessageBox.Show("软件没有成功启动。请确认已完整解压，并且本地数据目录可以写入。", "牛马不放器", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static bool HasDifferentExecutableRunning()
+    {
+        foreach (var process in Process.GetProcessesByName("NiumaBufangqi"))
+        {
+            using (process)
+            {
+                if (process.Id == Environment.ProcessId) continue;
+                try
+                {
+                    if (!string.Equals(process.MainModule?.FileName, Environment.ProcessPath, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException) { return true; }
+            }
+        }
+        return false;
+    }
+
+    private static bool HasLegacySalaryClockRunning()
+    {
+        var found = false;
+        foreach (var process in Process.GetProcessesByName("SalaryClock")) { using (process) { if (!process.HasExited) found = true; } }
+        return found;
+    }
+
+    private static bool IsCurrentStartupConfigured()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(StartupKey, false);
+            return string.Equals(key?.GetValue(StartupValue) as string, "\"" + Environment.ProcessPath + "\"", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (System.Security.SecurityException) { return false; }
     }
 
     private static string ResolveDataDirectory(string[] args)
@@ -117,10 +167,9 @@ public partial class App : Application
         menu.Items.Add("薪资与工作安排", null, (_, _) => ShowPanel("settings"));
         menu.Items.Add(new Forms.ToolStripSeparator());
         privacyItem = new Forms.ToolStripMenuItem("隐藏收益金额", null, (_, _) => TryChange(() => Commit(State with { Privacy = !State.Privacy })));
-        widgetItem = new Forms.ToolStripMenuItem("显示底部小挂件", null, (_, _) => TryChange(() => Commit(State with { WidgetVisible = !State.WidgetVisible })));
+        widgetItem = new Forms.ToolStripMenuItem("显示任务栏入口", null, (_, _) => TryChange(() => Commit(State with { TaskbarEntryVisible = !State.TaskbarEntryVisible })));
         startupItem = new Forms.ToolStripMenuItem("随 Windows 启动", null, (_, _) => TryChange(() => SetStartup(!State.StartWithWindows)));
         menu.Items.AddRange([privacyItem, widgetItem, startupItem]);
-        menu.Items.Add("移到鼠标所在的屏幕", null, (_, _) => { screen = Forms.Screen.FromPoint(Forms.Cursor.Position); Reposition(); });
         menu.Items.Add("打开本地数据目录", null, (_, _) => TryChange(OpenDataFolder));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("退出", null, (_, _) => ExitApplication());
@@ -130,39 +179,51 @@ public partial class App : Application
             using var resourceIcon = new System.Drawing.Icon(stream);
             tray = new Forms.NotifyIcon { Icon = (System.Drawing.Icon)resourceIcon.Clone(), Text = "牛马不放器", Visible = true, ContextMenuStrip = menu };
         }
-        tray.MouseClick += (_, eventArgs) => { if (eventArgs.Button == Forms.MouseButtons.Left) TogglePanel(); };
+        tray.MouseClick += (_, eventArgs) => { if (eventArgs.Button == Forms.MouseButtons.Left) ShowPanel(); };
         tray.MouseDoubleClick += (_, _) => ShowPanel();
     }
 
     internal void ShowMenu() { UpdateMenu(); menu.Show(Forms.Cursor.Position); }
     private void UpdateMenu()
     {
-        privacyItem.Checked = State.Privacy; widgetItem.Checked = State.WidgetVisible; startupItem.Checked = State.StartWithWindows;
+        privacyItem.Checked = State.Privacy; widgetItem.Checked = State.TaskbarEntryVisible; startupItem.Checked = State.StartWithWindows;
     }
 
-    internal void TogglePanel() { if (panel.IsVisible) HidePanel(); else ShowPanel(); }
+    internal void TogglePanel()
+    {
+        var visible = PanelVisibilityPolicy.GetNextVisibility(panel.IsVisible, PanelInteraction.EntryClick, State.Settings is not null);
+        if (visible) ShowPanel(); else HidePanel("entry-toggle");
+    }
+    internal void DismissPanelOnDeactivation()
+    {
+        var visible = PanelVisibilityPolicy.GetNextVisibility(panel.IsVisible, PanelInteraction.LostFocus, State.Settings is not null, entry.IsPointerOverEntry);
+        if (!visible) HidePanel("deactivated");
+    }
     internal void ShowPanel(string? page = null)
     {
         if (Exiting) return;
         if (!panel.IsVisible) panel.Show();
         Reposition(); panel.Activate();
+        entry.SetPanelVisible(true);
         if (page is not null) panel.NavigateTo(page);
         panel.SendState(); panel.SendSnapshot();
     }
     internal void HidePanel(string reason = "request")
     {
         if (!panel.IsVisible) return;
-        panel.ClearTransientPaper(); panel.Hide();
+        panel.ClearTransientPaper(); panel.Hide(); entry.SetPanelVisible(false);
     }
     private void Reposition()
     {
-        NativePositioning.PlaceWidget(widget, screen);
-        if (panel.IsVisible) NativePositioning.PlacePanel(panel, screen);
+        entry.RefreshPlacement();
+        if (!panel.IsVisible) return;
+        if (entry.TryGetScreenBounds(out var anchor)) NativePositioning.PlacePanel(panel, Forms.Screen.FromRectangle(anchor), anchor);
+        else NativePositioning.PlacePanel(panel, screen, null);
     }
     private void Tick()
     {
         Snapshot = State.Settings is null ? null : SalaryCalculator.Calculate(State.Settings, DateTime.Now);
-        widget.Update(State, Snapshot);
+        entry.Update(State, Snapshot);
         panel.SendSnapshot();
         UpdateMenu();
         tray.Text = State.Settings is null ? "牛马不放器 · 先设置薪资" : State.Privacy ? "牛马不放器 · 金额已隐藏" : $"牛马不放器 · 今日估算 ¥{Snapshot!.Earned:0.00}";
@@ -205,8 +266,6 @@ public partial class App : Application
     {
         store.Save(next);
         State = next;
-        if (State.WidgetVisible && !widget.IsVisible) { widget.Show(); Reposition(); }
-        else if (!State.WidgetVisible && widget.IsVisible) widget.Hide();
         panel.SendState(); Tick();
     }
 
@@ -270,13 +329,14 @@ public partial class App : Application
     {
         if (Exiting) return;
         Exiting = true; clock?.Stop();
-        panel?.Close(); widget?.Close(); Shutdown();
+        panel?.Close(); entry?.Dispose(); Shutdown();
     }
     protected override void OnExit(ExitEventArgs args)
     {
         Exiting = true;
         if (displayChanged is not null) SystemEvents.DisplaySettingsChanged -= displayChanged;
         activationWait?.Unregister(null); activation?.Dispose(); instance?.Dispose();
+        entry?.Dispose();
         if (tray is not null) { tray.Visible = false; tray.Icon?.Dispose(); tray.Dispose(); }
         menu?.Dispose(); base.OnExit(args);
     }

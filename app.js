@@ -428,7 +428,7 @@
       : `<h2>给打工人的一点精神补给</h2><p>核心场景：工作烦、想放弃时，抬眼看到收益在涨，下班在靠近，点一下能有人替你吐槽。</p><h3>这版原型的三个取舍</h3><ul><li>平时安静做小挂件，需要时展开；金额随时能隐藏。</li><li>情绪按钮即时回应，休息主动开始，由自己结束。</li><li>沿用原有 Windows 计薪逻辑，先把这一个安慰瞬间做好。</li></ul><h3>调研参考 · 2026-11-09</h3><p><a href="https://github.com/cass-2003/Floatly" target="_blank" rel="noopener noreferrer">Floatly</a> / 紧凑桌面形态<br><a href="https://github.com/huaixu016/DeskBuddy" target="_blank" rel="noopener noreferrer">DeskBuddy</a> / 收益和陪伴结合<br><a href="https://github.com/hovancik/stretchly" target="_blank" rel="noopener noreferrer">Stretchly</a> / 可跳过、由用户掌控的休息</p><p class="dialog-foot">公开资料调研，未进行真人访谈。界面、图形和文案为本原型原创。当前为本地浏览器演示，原生任务栏接入、系统托盘和开机启动待 Windows 开发阶段实现。</p><p><a href="docs/research.md" target="_blank">查看完整调研记录 ↗</a></p>`;
     $('dialogEyebrow').textContent = kind === 'formula' ? 'SALARY ESTIMATE' : 'DESIGN NOTES';
     $('dialogContent').innerHTML = isDesktop && kind !== 'formula'
-      ? '<h2>牛马不放器</h2><p>给打工人的一点精神补给。工资按你的排班估算，下班时间按本机时钟倒数；烦的时候，也能来这里吐槽两句、揉一张纸。</p><h3>在这台电脑上，安静陪你</h3><p>设置和已结束的休息记录只保存到本地。不用登录，不上传薪资；烦恼纸上的文字完成或关闭后就清空。</p><p>可以从小挂件或系统托盘打开面板。随 Windows 启动由你主动开启，收起面板后仍可从托盘退出软件。</p><h3>关于估算</h3><p>收益不是实际到账。午休不计薪时暂停增长，下班封顶，休息日归零。当前不含税费、请假、调休、加班或跨夜班。</p>'
+      ? '<h2>牛马不放器</h2><p>给打工人的一点精神补给。工资按你的排班估算，下班时间按本机时钟倒数；烦的时候，也能来这里吐槽两句、揉一张纸。</p><h3>在任务栏里，安静陪你</h3><p>设置和已结束的休息记录只保存到本地。不用登录，不上传薪资；烦恼纸上的文字完成或关闭后就清空。</p><p>点击任务栏里的收益入口打开面板，再点一次收起。任务栏暂时无法显示入口时，可从系统托盘恢复面板。随 Windows 启动由你主动开启；彻底退出请使用托盘菜单。</p><h3>关于估算</h3><p>收益不是实际到账。午休不计薪时暂停增长，下班封顶，休息日归零。当前不含税费、请假、调休、加班或跨夜班。</p>'
       : content;
     if (isDesktop && kind === 'formula') {
       const foot = $('dialogContent').querySelector('.dialog-foot');
@@ -519,6 +519,7 @@
     });
     $('openDataFolder').addEventListener('click', () => desktop.send('openDataFolder'));
     $('nativeVersion').textContent = `牛马不放器 ${desktop.version} · 离线陪伴`;
+    document.querySelector('.window-title').lastChild.textContent = `牛马不放器 · ${desktop.version}`;
     $('storageDescription').textContent = '不用登录，薪资与休息记录只保存在这台电脑。烦恼纸上的文字不会保存或上传。';
     $('resetSettings').textContent = '清除薪资配置';
     const salaryFields = new Set(['monthlySalary', 'paidDays', 'startTime', 'endTime', 'lunchEnabled', 'lunchStart', 'lunchEnd']);

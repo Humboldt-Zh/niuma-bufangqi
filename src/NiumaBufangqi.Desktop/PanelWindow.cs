@@ -28,7 +28,7 @@ internal sealed class PanelWindow : Window
         Width = 560; Height = 760;
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
-        ShowInTaskbar = true;
+        ShowInTaskbar = false;
         Topmost = true;
         Background = new SolidColorBrush(Color.FromRgb(255, 254, 249));
         var grid = new Grid();
@@ -43,7 +43,7 @@ internal sealed class PanelWindow : Window
         Loaded += async (_, _) => await InitializeBrowserAsync();
         Closing += OnClosing;
         // First-run configuration stays visible until the user closes it explicitly.
-        Deactivated += (_, _) => { if (!owner.Exiting && owner.State.Settings is not null) owner.HidePanel("deactivated"); };
+        Deactivated += (_, _) => { if (!owner.Exiting) owner.DismissPanelOnDeactivation(); };
     }
 
     public async Task InitializeBrowserAsync()
@@ -90,7 +90,7 @@ internal sealed class PanelWindow : Window
             web.ProcessFailed += (_, _) => ShowFailure("界面进程暂时不可用。请从托盘退出后重新打开，已保存的配置仍在本机。", null);
             var bootstrap = JsonSerializer.Serialize(new { state = owner.State, version = App.Version }, App.Json);
             await web.AddScriptToExecuteOnDocumentCreatedAsync("window.__NIUMA_BOOTSTRAP__=" + bootstrap + ";");
-            web.Navigate(Origin + "index.html");
+            web.Navigate(Origin + "index.html?v=" + Uri.EscapeDataString(App.Version));
         }
         catch (WebView2RuntimeNotFoundException exception)
         {
