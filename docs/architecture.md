@@ -1,6 +1,6 @@
 # 牛马不放器架构与技术路线
 
-日期：2026-11-09。状态：0.1.1 任务栏入口改造；具体构建与实测结果以 [验证记录](verification.md) 为准，新的原生交互仍待人工验收。
+日期：2026-11-10。状态：0.1.5 展开面板原生外框；具体构建与实测结果以 [验证记录](verification.md) 为准，尚未执行的原生验收保持未验证。
 
 ## 目标与选择
 
@@ -13,6 +13,8 @@
 `src/NiumaBufangqi.Core` 是纯 BCL 类库，处理工资设置校验、计薪状态和快照，以及版本化本地状态存储。金额采用 `decimal`；计算只接收明确的设置与本地时间，不读取系统 UI 或网页状态。
 
 `src/NiumaBufangqi.Desktop` 是 Windows 宿主，负责单实例运行、窗口生命周期、任务栏入口、托盘、面板定位、开机启动、WebView2 初始化及受限消息桥。WinForms 承载任务栏子窗口及托盘，WPF 承载展开面板，WebView2 渲染面板内容。任务栏入口不再由独立的 `WidgetWindow` 浮窗承载。
+
+`PanelWindowFrame` 使用 WPF `WindowChrome` 保留原生外框能力，并向 Windows 11 DWM 请求圆角与边框颜色；系统管理窗外投影。WebView2 内容保持不透明，固定尺寸面板不增加拖动或缩放命中区域。系统描边不可用时由 WPF 提供单层描边；外框视觉与 DPI 兼容性仍需实机验收。
 
 根目录 HTML/CSS/JavaScript 是 UI 资产。`app.js` 管理界面和休息交互，`model.js` 支撑浏览器演示；桌面模式通过 `desktop-bridge.js` 使用宿主状态和真实计薪快照。`desktop.css` 去掉模拟桌面外壳，保留原面板与揉纸体验。`paper-play.js` 和本地 SVG 承载纸张互动，不持久化烦恼文字。
 

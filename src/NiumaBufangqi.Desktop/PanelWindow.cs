@@ -17,6 +17,7 @@ internal sealed class PanelWindow : Window
     private readonly App owner;
     private readonly WebView2 browser;
     private readonly TextBlock loading;
+    private readonly Grid content;
     private bool ready;
     private bool initializing;
     private string? pendingPage;
@@ -26,12 +27,14 @@ internal sealed class PanelWindow : Window
         this.owner = owner;
         Title = "牛马不放器";
         Width = 560; Height = 760;
-        WindowStyle = WindowStyle.None;
+        WindowStyle = WindowStyle.SingleBorderWindow;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
         Topmost = true;
+        SnapsToDevicePixels = true;
+        UseLayoutRounding = true;
         Background = new SolidColorBrush(Color.FromRgb(255, 254, 249));
-        var grid = new Grid();
+        content = new Grid();
         loading = new TextBlock
         {
             Text = "正在给工位充点电…", FontSize = 15, Foreground = new SolidColorBrush(Color.FromRgb(111, 134, 87)),
@@ -39,7 +42,10 @@ internal sealed class PanelWindow : Window
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(28)
         };
         browser = new WebView2 { Visibility = Visibility.Hidden, DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 255, 254, 249) };
-        grid.Children.Add(browser); grid.Children.Add(loading); Content = grid;
+        content.Children.Add(browser); content.Children.Add(loading);
+        var frame = new Border { Child = content, Background = Background, SnapsToDevicePixels = true };
+        Content = frame;
+        PanelWindowFrame.Configure(this, frame, state => owner.Log(state));
         Loaded += async (_, _) => await InitializeBrowserAsync();
         Closing += OnClosing;
         // First-run configuration stays visible until the user closes it explicitly.
@@ -114,7 +120,7 @@ internal sealed class PanelWindow : Window
         panel.Children.Add(button);
         var exit = new Button { Content = "退出软件", Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(0, 12, 0, 0) };
         exit.Click += (_, _) => owner.ExitApplication(); panel.Children.Add(exit);
-        ((Grid)Content).Children.Add(panel);
+        content.Children.Add(panel);
     }
 
     private static bool IsApplicationUri(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri)
