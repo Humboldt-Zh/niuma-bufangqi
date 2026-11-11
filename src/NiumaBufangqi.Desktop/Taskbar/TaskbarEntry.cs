@@ -8,7 +8,7 @@ using NiumaBufangqi.Core;
 namespace NiumaBufangqi.Desktop.Taskbar;
 
 /// <summary>A non-activating child of Explorer. It never falls back to a desktop overlay.</summary>
-internal sealed class TaskbarEntry : IDisposable
+internal sealed class TaskbarEntry : IDisposable, IEmbeddedEntry
 {
     private readonly Action togglePanel;
     private readonly Action openMenu;
@@ -20,6 +20,8 @@ internal sealed class TaskbarEntry : IDisposable
     private TaskbarPresentation presentation = new("牛马不放器", "牛马不放器", "点击设置薪资");
     private TaskbarPalette palette = TaskbarPalette.Read();
     private Rectangle screenBounds;
+    private Rectangle taskbarBounds;
+    private int allocatedDpi;
     private IntPtr parent;
     private Size surfaceSize;
     private int dpi = 96;
@@ -27,6 +29,7 @@ internal sealed class TaskbarEntry : IDisposable
     private bool mouseInside;
     private bool panelVisible;
     private bool attached;
+    private bool suppressed;
     private bool started;
     private bool enabled = true;
     private bool disposed;
@@ -46,8 +49,10 @@ internal sealed class TaskbarEntry : IDisposable
     }
 
     internal event EventHandler? AttachmentChanged;
+    internal event EventHandler? PlacementChecked;
     internal event Action<string>? Diagnostic;
     internal IntPtr ParentHwnd => attached ? parent : IntPtr.Zero;
+    internal TaskbarPresentation Presentation => presentation;
     internal bool IsPointerOverEntry => TryGetScreenBounds(out var bounds) && bounds.Contains(Cursor.Position);
 
     internal void Start()
@@ -72,13 +77,54 @@ internal sealed class TaskbarEntry : IDisposable
     {
         if (disposed || panelVisible == visible) return;
         panelVisible = visible;
-        RenderSurface();
+        if (!suppressed) RenderSurface();
+    }
+
+    bool IEmbeddedEntry.TryGetAllocatedSlot(out EntrySlot slot) => TryGetAllocatedSlot(out slot);
+    void IEmbeddedEntry.SetSuppressed(bool value) => SetSuppressed(value);
+
+    internal bool TryGetAllocatedSlot(out EntrySlot slot)
+    {
+        slot = default;
+        // A hidden child can still own its slot while the popup is showing. The
+        // native taskbar identity/geometry, not the child's visibility, validates it.
+        if (disposed || !enabled || !attached || surface is null || surface.IsDisposed || !surface.IsHandleCreated
+            || !TaskbarNative.IsWindow(surface.Handle) || TaskbarNative.GetParent(surface.Handle) != parent
+            || TaskbarNative.FindWindow("Shell_TrayWnd", null) != parent || !TaskbarNative.IsWindow(parent)
+            || !TaskbarNative.IsWindowVisible(parent) || !TaskbarNative.GetWindowRect(parent, out var actual)
+            || Math.Max(96, (int)TaskbarNative.GetDpiForWindow(parent)) != allocatedDpi) return false;
+        var bounds = Rectangle.FromLTRB(actual.Left, actual.Top, actual.Right, actual.Bottom);
+        var visiblePart = Rectangle.Intersect(Screen.FromHandle(parent).Bounds, bounds);
+        if (bounds != taskbarBounds || visiblePart.Height < Math.Max(16, 24 * allocatedDpi / 96)
+            || screenBounds.Width <= 0 || screenBounds.Height <= 0) return false;
+        slot = new(screenBounds, allocatedDpi, compact);
+        return true;
+    }
+
+    internal void SetSuppressed(bool value)
+    {
+        if (disposed || suppressed == value) return;
+        suppressed = value;
+        if (surface is not { IsDisposed: false, IsHandleCreated: true } || !TaskbarNative.IsWindow(surface.Handle)) return;
+        if (suppressed)
+        {
+            tooltip.Hide(surface);
+            TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwHide);
+            if (TaskbarNative.IsWindowVisible(surface.Handle))
+                throw new InvalidOperationException("The embedded entry could not be suppressed.");
+        }
+        else if (TryGetAllocatedSlot(out _))
+        {
+            if (!RenderSurface()) { HideSurface("restore-render-failed"); return; }
+            TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwShowNoActivate);
+        }
+        else TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwHide);
     }
 
     internal bool TryGetScreenBounds(out Rectangle bounds)
     {
         bounds = Rectangle.Empty;
-        if (disposed || !attached || surface is null || !surface.IsHandleCreated || surface.IsDisposed
+        if (suppressed || !TryGetAllocatedSlot(out _) || surface is null || !surface.IsHandleCreated || surface.IsDisposed
             || !TaskbarNative.IsWindow(surface.Handle) || TaskbarNative.GetParent(surface.Handle) != parent
             || !TaskbarNative.IsWindowVisible(surface.Handle) || !TaskbarNative.IsWindowVisible(parent)
             || !TaskbarNative.GetWindowRect(surface.Handle, out var rect)) return false;
@@ -121,36 +167,46 @@ internal sealed class TaskbarEntry : IDisposable
             surfaceSize = target.Size;
             if (!TaskbarNative.SetWindowPos(surface.Handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height,
                 TaskbarNative.SwpNoActivate | TaskbarNative.SwpNoSendChanging)) { HideSurface("position-failed"); return; }
-            if (!RenderSurface()) { HideSurface("render-failed"); return; }
-            TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwShowNoActivate);
+            if (!suppressed && !RenderSurface()) { HideSurface("render-failed"); return; }
+            TaskbarNative.ShowWindow(surface.Handle, suppressed ? TaskbarNative.SwHide : TaskbarNative.SwShowNoActivate);
             var newBounds = new Rectangle(actualBounds.Left + target.X, actualBounds.Top + target.Y, target.Width, target.Height);
-            var changed = !attached || parent != currentHandle || screenBounds != newBounds;
-            parent = currentHandle; screenBounds = newBounds; attached = true;
+            var changed = !attached || parent != currentHandle || screenBounds != newBounds
+                || taskbarBounds != actualBounds || allocatedDpi != dpi;
+            parent = currentHandle; screenBounds = newBounds; taskbarBounds = actualBounds; allocatedDpi = dpi; attached = true;
             ReportDiagnostic("shown-native-entry");
             var healthTick = Stopwatch.GetTimestamp();
             if (lastHealthTick == 0 || Stopwatch.GetElapsedTime(lastHealthTick, healthTick) >= TimeSpan.FromSeconds(10))
             {
                 lastHealthTick = healthTick;
-                Diagnostic?.Invoke(TryGetScreenBounds(out _) ? "health-native-visible" : "health-native-not-visible");
+                Diagnostic?.Invoke(suppressed ? "health-embedded-suppressed"
+                    : TryGetScreenBounds(out _) ? "health-native-visible" : "health-native-not-visible");
             }
             if (changed) AttachmentChanged?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or ExternalException)
         { HideSurface("refresh-error"); }
-        finally { refreshing = false; }
+        finally
+        {
+            refreshing = false;
+            PlacementChecked?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private void EnsureSurface()
     {
-        if (surface is { IsDisposed: false, Disposing: false }) return;
+        if (surface is { IsDisposed: false, Disposing: false })
+        {
+            if (!surface.IsHandleCreated || TaskbarNative.IsWindow(surface.Handle)) return;
+            surface.Dispose();
+        }
         surface = new Surface();
         surface.MouseUp += (_, args) =>
         {
             if (args.Button == MouseButtons.Left) togglePanel();
             else if (args.Button == MouseButtons.Right) openMenu();
         };
-        surface.MouseEnter += (_, _) => { mouseInside = true; RenderSurface(); };
-        surface.MouseLeave += (_, _) => { mouseInside = false; RenderSurface(); };
+        surface.MouseEnter += (_, _) => { mouseInside = true; if (!suppressed) RenderSurface(); };
+        surface.MouseLeave += (_, _) => { mouseInside = false; if (!suppressed) RenderSurface(); };
         tooltip.SetToolTip(surface, "牛马不放器 · 点击展开或收起，右键打开菜单");
         // Complete WinForms' top-level creation/load path before changing the native
         // parent. A layered 1px surface has no bitmap yet and is parked off-screen.
@@ -177,7 +233,7 @@ internal sealed class TaskbarEntry : IDisposable
     {
         if (surface is { IsDisposed: false, IsHandleCreated: true }) TaskbarNative.ShowWindow(surface.Handle, TaskbarNative.SwHide);
         var changed = attached;
-        attached = false; parent = IntPtr.Zero; screenBounds = Rectangle.Empty;
+        attached = false; parent = IntPtr.Zero; screenBounds = Rectangle.Empty; taskbarBounds = Rectangle.Empty; allocatedDpi = 0;
         ReportDiagnostic("hidden-" + reason);
         if (changed) AttachmentChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -246,7 +302,7 @@ internal sealed class TaskbarEntry : IDisposable
         monitor.Dispose(); tooltip.Dispose();
         layoutCache.Reset();
         surface?.Dispose(); surface = null;
-        attached = false; parent = IntPtr.Zero; screenBounds = Rectangle.Empty;
+        attached = false; parent = IntPtr.Zero; screenBounds = Rectangle.Empty; taskbarBounds = Rectangle.Empty; allocatedDpi = 0;
     }
 
     private sealed class Surface : Form

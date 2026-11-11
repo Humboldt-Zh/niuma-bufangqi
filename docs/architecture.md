@@ -1,6 +1,6 @@
 # 牛马不放器架构与技术路线
 
-日期：2026-11-10。状态：0.1.5 展开面板原生外框；具体构建与实测结果以 [验证记录](verification.md) 为准，尚未执行的原生验收保持未验证。
+日期：2026-11-11。状态：0.1.9 通过事件提前检查任务栏遮挡；具体构建与实测结果以 [验证记录](verification.md) 为准，尚未执行的原生验收保持未验证。
 
 ## 目标与选择
 
@@ -15,6 +15,14 @@
 `src/NiumaBufangqi.Desktop` 是 Windows 宿主，负责单实例运行、窗口生命周期、任务栏入口、托盘、面板定位、开机启动、WebView2 初始化及受限消息桥。WinForms 承载任务栏子窗口及托盘，WPF 承载展开面板，WebView2 渲染面板内容。任务栏入口不再由独立的 `WidgetWindow` 浮窗承载。
 
 `PanelWindowFrame` 使用 WPF `WindowChrome` 保留原生外框能力，并向 Windows 11 DWM 请求圆角与边框颜色；系统管理窗外投影。WebView2 内容保持不透明，固定尺寸面板不增加拖动或缩放命中区域。系统描边不可用时由 WPF 提供单层描边；外框视觉与 DPI 兼容性仍需实机验收。
+
+0.1.6 在保留原生任务栏槽位的基础上，由 `EntryElevationCoordinator` 切换 child 与面板拥有的 `EntryPopupWindow`。只有面板展开且槽位仍有效时才使用非激活顶层入口，普通 UIA 未知不撤销已分配位置。显隐切换不重新挂接 child，也不创建第二套计薪状态，详见 [ADR 0004](adr/0004-linked-entry-elevation.md)。
+
+0.1.7 仅替换浮起入口材质：`EntryBackdropController` 选择 Acrylic/实色/高对比度，`EntryBackdropNative` 隔离 Accent Acrylic 兼容 API。窗口仍为非 Layered、NoActivate；背景模糊与前景位图分开，设置/主题/合成/节能通知触发重应用，稳定计薪刷新不反复调用材质 API。能力不可用时使用同色实底，详见 [ADR 0005](adr/0005-entry-desktop-acrylic.md)。
+
+0.1.8 补充真实可见性检查：`EntryPopupOcclusion` 用入口中心的 `WindowFromPoint` 根窗口识别当前 Shell 任务栏遮挡；只对此执行保留位置、尺寸、焦点与 owner 层级的置顶恢复，修复后二次检查仍失败就交回 embedded。菜单或其他应用浮层不触发恢复。WPF/native 显隐不一致时显式原生重显，DWM cloaked 状态不视为成功浮起。
+
+0.1.9 新增 `EntryLayerMonitor`：OUTOFCONTEXT WinEvent 监听外部 foreground 及当前任务栏进程中的目标 reorder。回调不直接操作窗口，通过合并的 Dispatcher 队列进入既有入口协调；因 foreground 可能早于 Shell 完成抬升，事件后进行有限短检查，之后停止，原 500ms 刷新继续兜底。reorder 不是任务栏顶层 Z 序必发的契约，不能单靠该事件保证恢复；关闭时解除所有 hook 和 timer。
 
 根目录 HTML/CSS/JavaScript 是 UI 资产。`app.js` 管理界面和休息交互，`model.js` 支撑浏览器演示；桌面模式通过 `desktop-bridge.js` 使用宿主状态和真实计薪快照。`desktop.css` 去掉模拟桌面外壳，保留原面板与揉纸体验。`paper-play.js` 和本地 SVG 承载纸张互动，不持久化烦恼文字。
 

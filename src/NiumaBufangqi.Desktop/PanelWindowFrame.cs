@@ -18,8 +18,9 @@ internal static class PanelWindowFrame
     private const int RoundCorners = 2;
     private const int CompositionChanged = 0x031E;
 
-    internal static void Configure(Window window, Border fallback, Action<string> diagnostic)
+    internal static void Configure(Window window, Border fallback, Action<string> diagnostic, Color? borderColor = null)
     {
+        var stroke = borderColor ?? Stroke;
         // Preserve native frame styles for DWM without adding a draggable caption
         // or resize hit targets. A nonzero glass margin lets WindowChrome clear
         // its legacy window region, so Windows 11 can round the actual HWND.
@@ -31,7 +32,7 @@ internal static class PanelWindowFrame
             CornerRadius = new CornerRadius(0),
             UseAeroCaptionButtons = false
         });
-        fallback.BorderBrush = new SolidColorBrush(Stroke);
+        fallback.BorderBrush = new SolidColorBrush(stroke);
         fallback.BorderThickness = new Thickness(1);
         HwndSource? source = null;
         string? lastDiagnostic = null;
@@ -45,7 +46,7 @@ internal static class PanelWindowFrame
             {
                 var corners = RoundCorners;
                 cornersRequested = DwmSetWindowAttribute(handle, WindowCornerPreference, ref corners, sizeof(int)) >= 0;
-                var color = Stroke.R | Stroke.G << 8 | Stroke.B << 16;
+                var color = stroke.R | stroke.G << 8 | stroke.B << 16;
                 borderApplied = DwmSetWindowAttribute(handle, BorderColor, ref color, sizeof(int)) >= 0;
             }
             // Never paint a second inset stroke over a working system border.
@@ -66,7 +67,11 @@ internal static class PanelWindowFrame
             source?.AddHook(WindowProcedure);
             ApplyNativeFrame();
         };
-        window.Closed += (_, _) => source?.RemoveHook(WindowProcedure);
+        window.Closed += (_, _) =>
+        {
+            if (source is { IsDisposed: false }) source.RemoveHook(WindowProcedure);
+            source = null;
+        };
     }
 
     [DllImport("dwmapi.dll", ExactSpelling = true)]

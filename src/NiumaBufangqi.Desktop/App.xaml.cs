@@ -32,6 +32,11 @@ public partial class App : Application
     private Forms.ContextMenuStrip menu = null!;
     private PanelWindow panel = null!;
     private TaskbarEntry entry = null!;
+    private EntryPopupWindow entryPopup = null!;
+    private EntryElevationCoordinator entryElevation = null!;
+    private EntryElevationMode? reportedElevationMode;
+    private bool elevationRequested;
+    private bool contextMenuOpen;
     private Forms.Screen screen = null!;
     private EventHandler? displayChanged;
     private Forms.ToolStripMenuItem privacyItem = null!;
@@ -75,7 +80,11 @@ public partial class App : Application
             State = State with { StartWithWindows = IsCurrentStartupConfigured() };
             panel = new PanelWindow(this);
             entry = new TaskbarEntry(TogglePanel, ShowMenu);
+            entryPopup = new EntryPopupWindow(panel, TogglePanel, ShowMenu, state => Log(state));
+            entryElevation = new EntryElevationCoordinator(entry, entryPopup);
+            entryPopup.LayerRefreshRequested += (_, _) => SynchronizeEntryElevation();
             entry.Diagnostic += state => Log("taskbar-" + state);
+            entry.PlacementChecked += (_, _) => SynchronizeEntryElevation();
             entry.AttachmentChanged += (_, _) =>
             {
                 if (!Exiting && !Dispatcher.HasShutdownStarted)
@@ -165,6 +174,19 @@ public partial class App : Application
     private void CreateTray()
     {
         menu = new Forms.ContextMenuStrip();
+        menu.Opening += (_, _) => { contextMenuOpen = true; UpdateMenu(); };
+        menu.Closed += (_, args) =>
+        {
+            contextMenuOpen = false;
+            if (Exiting || Dispatcher.HasShutdownStarted) return;
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (Exiting || !panel.IsVisible) return;
+                if (args.CloseReason is Forms.ToolStripDropDownCloseReason.Keyboard or Forms.ToolStripDropDownCloseReason.ItemClicked)
+                    panel.Activate();
+                else if (!panel.IsActive) DismissPanelOnDeactivation();
+            });
+        };
         menu.Items.Add("打开牛马不放器", null, (_, _) => ShowPanel());
         menu.Items.Add("薪资与工作安排", null, (_, _) => ShowPanel("settings"));
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -198,29 +220,50 @@ public partial class App : Application
     }
     internal void DismissPanelOnDeactivation()
     {
-        var visible = PanelVisibilityPolicy.GetNextVisibility(panel.IsVisible, PanelInteraction.LostFocus, State.Settings is not null, entry.IsPointerOverEntry);
+        if (Exiting || contextMenuOpen) return;
+        var overEntry = entry.IsPointerOverEntry || entryPopup.IsPointerOverEntry;
+        var visible = PanelVisibilityPolicy.GetNextVisibility(panel.IsVisible, PanelInteraction.LostFocus, State.Settings is not null, overEntry);
         if (!visible) HidePanel("deactivated");
     }
     internal void ShowPanel(string? page = null)
     {
         if (Exiting) return;
+        elevationRequested = true;
         if (!panel.IsVisible) panel.Show();
-        Reposition(); panel.Activate();
         entry.SetPanelVisible(true);
+        Reposition(); panel.Activate();
+        SynchronizeEntryElevation();
         if (page is not null) panel.NavigateTo(page);
         panel.SendState(); panel.SendSnapshot();
     }
     internal void HidePanel(string reason = "request")
     {
+        elevationRequested = false;
+        entry.SetPanelVisible(false);
+        entryElevation.Synchronize(false);
+        ReportEntryElevation();
         if (!panel.IsVisible) return;
-        panel.ClearTransientPaper(); panel.Hide(); entry.SetPanelVisible(false);
+        panel.ClearTransientPaper(); panel.Hide();
     }
     private void Reposition()
     {
         entry.RefreshPlacement();
         if (!panel.IsVisible) return;
-        if (entry.TryGetScreenBounds(out var anchor)) NativePositioning.PlacePanel(panel, Forms.Screen.FromRectangle(anchor), anchor);
+        if (entry.TryGetAllocatedSlot(out var slot)) NativePositioning.PlacePanel(panel, Forms.Screen.FromRectangle(slot.Bounds), slot.Bounds);
         else NativePositioning.PlacePanel(panel, screen, null);
+    }
+    private void SynchronizeEntryElevation()
+    {
+        if (Exiting || entryElevation is null) return;
+        entryPopup.Update(entry.Presentation);
+        entryElevation.Synchronize(elevationRequested && panel.IsVisible);
+        ReportEntryElevation();
+    }
+    private void ReportEntryElevation()
+    {
+        if (entryElevation is null || reportedElevationMode == entryElevation.Mode) return;
+        reportedElevationMode = entryElevation.Mode;
+        Log("entry-elevation-" + entryElevation.Mode.ToString().ToLowerInvariant());
     }
     private void Tick()
     {
@@ -330,7 +373,8 @@ public partial class App : Application
     internal void ExitApplication()
     {
         if (Exiting) return;
-        Exiting = true; clock?.Stop();
+        Exiting = true; elevationRequested = false; clock?.Stop();
+        entryElevation?.Dispose(); entryPopup?.Dispose();
         panel?.Close(); entry?.Dispose(); Shutdown();
     }
     protected override void OnExit(ExitEventArgs args)
@@ -338,6 +382,7 @@ public partial class App : Application
         Exiting = true;
         if (displayChanged is not null) SystemEvents.DisplaySettingsChanged -= displayChanged;
         activationWait?.Unregister(null); activation?.Dispose(); instance?.Dispose();
+        entryElevation?.Dispose(); entryPopup?.Dispose();
         entry?.Dispose();
         if (tray is not null) { tray.Visible = false; tray.Icon?.Dispose(); tray.Dispose(); }
         menu?.Dispose(); base.OnExit(args);

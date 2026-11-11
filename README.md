@@ -4,7 +4,9 @@
 
 牛马不放器是面向 Windows 的本地桌面工具。收益和状态信息显示在任务栏内的一个入口中：点击打开新版面板，再点击同一入口收起。面板自身不增加普通任务栏按钮；系统托盘保留恢复与退出入口。界面使用 HTML/CSS/JavaScript，宿主使用 .NET 10、WPF、WinForms 和 WebView2。
 
-当前为 **0.1.5 开发预发布版**，提供 [Windows x64 下载](https://github.com/Humboldt-Zh/niuma-bufangqi/releases/tag/v0.1.5)。本版为展开面板增加细描边、系统圆角请求与系统投影；构建及 83 项现有测试通过，原生视觉、按钮命中和不同 DPI 的实机验收尚未完成。0.1.4 的 Edge、其他窗口和 Windows 开始菜单闪隐验收保留为历史记录，具体范围见 [验证记录](docs/verification.md)。仓库保留独立的浏览器交互演示。
+当前为 **0.1.9 开发预发布版**，提供 [Windows x64 下载](https://github.com/Humboldt-Zh/niuma-bufangqi/releases/tag/v0.1.9)。面板展开时，牛马入口随面板浮起，使用浅绿色桌面 Acrylic 磨砂；收起后恢复任务栏嵌入。本版修复点击任务栏其他应用后入口被盖住的问题，并通过窗口事件提前恢复、减少闪动。关闭系统透明效果或进入高对比度等环境时使用可读实色。
+
+113 项自动测试及本机 Windows 11、150% 缩放下的原生和用户切换验收已通过；其他系统版本、多屏和自动隐藏等组合仍需分别验证，具体范围见 [验证记录](docs/verification.md)。仓库保留独立的浏览器交互演示。
 
 [GitHub 仓库](https://github.com/Humboldt-Zh/niuma-bufangqi) · [构建与测试](https://github.com/Humboldt-Zh/niuma-bufangqi/actions) · [发布页](https://github.com/Humboldt-Zh/niuma-bufangqi/releases)
 
@@ -26,9 +28,9 @@
 
 首版面向 Windows 11 x64。需要 **Microsoft Edge WebView2 Evergreen Runtime**；程序会检测缺失情况并引导到 [Microsoft 官方下载页](https://developer.microsoft.com/microsoft-edge/webview2/#download-section)。Windows 11 通常已包含该运行时，仍需以本机检测结果为准。
 
-从 [v0.1.5 发布页](https://github.com/Humboldt-Zh/niuma-bufangqi/releases/tag/v0.1.5) 下载 win-x64 ZIP 和同名 `.sha256` 校验文件。完整解压后，在固定目录运行其中的 `NiumaBufangqi.exe`。发布目录包含自带的 .NET 运行时，无需另外安装 .NET；WebView2 Runtime 是单独的前置依赖。
+从 [v0.1.9 发布页](https://github.com/Humboldt-Zh/niuma-bufangqi/releases/tag/v0.1.9) 下载 win-x64 ZIP 和同名 `.sha256` 校验文件。完整解压后，在固定目录运行其中的 `NiumaBufangqi.exe`。发布目录包含自带的 .NET 运行时，无需另外安装 .NET；WebView2 Runtime 是单独的前置依赖。
 
-升级前请从退出菜单彻底结束旧薪资时钟和 0.1.0 绿色浮窗版。0.1.5 检测到旧 `SalaryClock` 进程，或同一配置正在被其他目录中的牛马不放器使用时，会提示先退出旧版本，不叠加新入口，也不激活另一目录中的旧界面。它不会自动结束其他程序、替换旧入口或接管启动项；已经运行的两个旧版本仍需用户各自退出。已有 `%LOCALAPPDATA%\NiumaBufangqi\state.json` 中的设置继续使用，无需重填。完整步骤见 [手动升级与验收](docs/manual-upgrade.md)。
+升级前请从退出菜单彻底结束旧薪资时钟和 0.1.0 绿色浮窗版。新版检测到旧 `SalaryClock` 进程，或同一配置正在被其他目录中的牛马不放器使用时，会提示先退出旧版本，不叠加新入口，也不激活另一目录中的旧界面。它不会自动结束其他程序、替换旧入口或接管启动项；已经运行的两个旧版本仍需用户各自退出。已有 `%LOCALAPPDATA%\NiumaBufangqi\state.json` 中的设置继续使用，无需重填。完整步骤见 [手动升级与验收](docs/manual-upgrade.md)。
 
 再次点击任务栏入口、面板关闭按钮或普通页面的 `Esc` 都可收起面板。要彻底结束程序，使用任务栏入口右键菜单或系统托盘中的“退出”。开机启动开关反映当前 EXE 的实际启动项；换到新目录后未勾选属于正常情况，是否开启由用户决定。开启后只写当前 Windows 用户的启动项，无需管理员权限。升级后的快捷方式和自启动目标由用户主动确认；移动程序前先关闭旧启动项。
 
@@ -65,7 +67,7 @@ Core 与任务栏几何测试是无第三方测试包的控制台程序，失败
 
 产物写入 `artifacts/`，包含可运行目录、ZIP 和 SHA-256 校验文件，具体文件名以脚本输出为准。发布时必须保留许可证、第三方声明和运行依赖。
 
-普通构建和 x64 发布分别锁定依赖，版本以 `Directory.Build.props` 为准并核对 `package.json`。草稿发布工作流要求版本标签已指向本次提交。0.1.5 作为开发预发布提供，并在发布说明中明确尚未完成的原生外框验收；0.1.4 的闪隐问题历史验收和其他兼容性范围见验证记录。
+普通构建和 x64 发布分别锁定依赖，版本以 `Directory.Build.props` 为准并核对 `package.json`。草稿发布工作流要求版本标签已指向本次提交；公开安装包从对应标签的干净源码重新构建，ZIP 内的 `build-info.json` 记录来源提交。0.1.9 以开发预发布提供，实机验收及兼容性边界见验证记录。
 
 ## 浏览器交互演示
 

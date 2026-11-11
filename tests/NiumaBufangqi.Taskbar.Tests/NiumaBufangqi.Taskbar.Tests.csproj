@@ -7,5 +7,7 @@
     <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/TaskbarLayout.cs" Link="TaskbarLayout.cs" />
     <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/TaskbarObservation.cs" Link="TaskbarObservation.cs" />
     <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/TaskbarLayoutCache.cs" Link="TaskbarLayoutCache.cs" />
+    <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/EntryElevationCoordinator.cs" Link="EntryElevationCoordinator.cs" />
+    <Compile Include="../../src/NiumaBufangqi.Desktop/Taskbar/EntryBackdropController.cs" Link="EntryBackdropController.cs" />
   </ItemGroup>
 </Project>

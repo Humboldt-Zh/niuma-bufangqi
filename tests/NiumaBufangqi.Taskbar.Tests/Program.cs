@@ -296,14 +296,14 @@ var tests = new (string Name, Action Run)[]
         Equal<Rectangle?>(null, TaskbarLayout.Place(bar, weather, 800, int.MaxValue, 96));
         Equal<Rectangle?>(null, TaskbarLayout.Place(bar, weather, 800, 180, int.MaxValue));
     })
-};
+}.Concat(EntryElevationTests.All()).Concat(EntryBackdropTests.All()).ToArray();
 var failed = 0;
 foreach (var test in tests)
 {
     try { test.Run(); Console.WriteLine("PASS " + test.Name); }
     catch (Exception exception) { failed++; Console.Error.WriteLine("FAIL " + test.Name + ": " + exception.Message); }
 }
-Console.WriteLine($"{tests.Length - failed}/{tests.Length} taskbar data/geometry tests passed.");
+Console.WriteLine($"{tests.Length - failed}/{tests.Length} taskbar data/geometry/elevation/backdrop tests passed.");
 return failed == 0 ? 0 : 1;
 
 static TaskbarPlacement Require(TaskbarPlacement? value) => value ?? throw new InvalidOperationException("Expected a safe taskbar placement.");
